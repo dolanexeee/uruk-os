@@ -451,6 +451,236 @@ async function main() {
     await page.locator('[data-testid="code-tab-run.js"]').isVisible().catch(() => false),
   );
 
+  /* ================= Phase 3 ================= */
+
+  const setRange = async (sel, val) => {
+    await page.locator(sel).evaluate((el, v) => {
+      const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), "value").set;
+      setter.call(el, String(v));
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }, val);
+  };
+
+  console.log("— phase 3: spotlight (name, content, events) —");
+  await focusWindowViaMenu(page, /Terminal/);
+  await termType(page, 'echo "quixotic melon festival" > Notes/quixote.txt');
+  await page.click('[data-testid="menubar-spotlight"]');
+  const spotUp = await waitFor(() => page.locator('[data-testid="spotlight"]').isVisible().catch(() => false));
+  check("spotlight opens from the menu bar", !!spotUp);
+  await page.fill('[data-testid="spotlight-input"]', "a.txt");
+  const spotFile = await waitFor(() => page.locator('[data-testid="spotlight-result-a.txt"]').isVisible().catch(() => false));
+  check("spotlight: finds a.txt by file name", !!spotFile);
+  await page.waitForTimeout(550);
+  await page.screenshot({ path: path.join(SHOTS, "15-spotlight.png") });
+  await page.keyboard.press("Enter");
+  const spotEditor = await waitFor(() => page.locator('[data-testid="window-editor"]').isVisible().catch(() => false));
+  check("spotlight: Enter opens the file in its app (Editor)", !!spotEditor);
+  await closeWin("editor");
+  await page.click('[data-testid="menubar-spotlight"]');
+  await page.fill('[data-testid="spotlight-input"]', "quixotic");
+  const spotNote = await waitFor(() => page.locator('[data-testid="spotlight-result-quixote.txt"]').isVisible().catch(() => false));
+  check("spotlight: finds a note by its CONTENT (quixotic)", !!spotNote);
+  await page.keyboard.press("Escape");
+  check("spotlight: Esc closes", !(await page.locator('[data-testid="spotlight"]').isVisible().catch(() => false)));
+  await page.keyboard.press("Control+k");
+  const spotK = await waitFor(() => page.locator('[data-testid="spotlight"]').isVisible().catch(() => false));
+  check("spotlight: Ctrl+K opens", !!spotK);
+  await page.fill('[data-testid="spotlight-input"]', "Dentist");
+  const spotEvent = await waitFor(() => page.locator('[data-testid="spotlight-result-Dentist appointment"]').isVisible().catch(() => false));
+  check("spotlight: finds the calendar event", !!spotEvent);
+  await page.keyboard.press("Enter");
+  const spotCal = await waitFor(() => page.locator('[data-testid="window-calendar"]').isVisible().catch(() => false));
+  check("spotlight: Enter opens Calendar for the event", !!spotCal);
+  await closeWin("calendar");
+
+  console.log("— phase 3: launchpad —");
+  await page.click('[data-testid="dock-icon-launchpad"]');
+  const lpUp = await waitFor(() => page.locator('[data-testid="launchpad"]').isVisible().catch(() => false));
+  check("launchpad opens from the Dock", !!lpUp);
+  await page.waitForTimeout(550);
+  await page.screenshot({ path: path.join(SHOTS, "16-launchpad.png") });
+  await page.click('[data-testid="launchpad-app-calculator"]');
+  const lpCalc = await waitFor(() => page.locator('[data-testid="window-calculator"]').isVisible().catch(() => false));
+  check("launchpad: clicking Calculator launches it", !!lpCalc);
+  check("launchpad: closes after launch", !(await page.locator('[data-testid="launchpad"]').isVisible().catch(() => false)));
+  await closeWin("calculator");
+
+  console.log("— phase 3: control center (brightness + shared volume) —");
+  await page.click('[data-testid="menubar-control-center"]');
+  const ccUp = await waitFor(() => page.locator('[data-testid="control-center"]').isVisible().catch(() => false));
+  check("control center opens", !!ccUp);
+  await page.waitForTimeout(550);
+  await page.screenshot({ path: path.join(SHOTS, "17-control-center.png") });
+  await setRange('[data-testid="cc-brightness"]', 0.6);
+  const dimVal = await page.locator('[data-testid="brightness-overlay"]').getAttribute("data-brightness");
+  check("control center: brightness slider drives the dim overlay (0.6)", dimVal === "0.6", String(dimVal));
+  await setRange('[data-testid="cc-volume"]', 0.3);
+  await page.keyboard.press("Escape");
+  await page.click('[data-testid="dock-icon-music"]');
+  await waitFor(() => page.locator('[data-testid="window-music"]').isVisible().catch(() => false));
+  const musicVol = await page.locator('[data-testid="music-volume"]').inputValue();
+  check("control center: volume is the Music app's volume (0.3)", Math.abs(parseFloat(musicVol) - 0.3) < 0.001, musicVol);
+  await closeWin("music");
+  await page.reload({ waitUntil: "networkidle" });
+  await waitFor(() => page.locator('[data-testid="login-screen"]').isVisible().catch(() => false), 12000);
+  await page.click('[data-testid="login-button"]');
+  await waitFor(() => page.locator('[data-testid="dock"]').isVisible().catch(() => false));
+  const dimAfter = await page.locator('[data-testid="brightness-overlay"]').getAttribute("data-brightness");
+  check("brightness persists after reload (0.6)", dimAfter === "0.6", String(dimAfter));
+  await page.click('[data-testid="menubar-control-center"]');
+  await setRange('[data-testid="cc-brightness"]', 1);
+  await page.keyboard.press("Escape");
+
+  console.log("— phase 3: wi-fi switch gates the browser —");
+  await page.click('[data-testid="dock-icon-browser"]');
+  await waitFor(() => page.locator('[data-testid="window-browser"]').isVisible().catch(() => false));
+  await page.click('[data-testid="browser-address"]');
+  await page.fill('[data-testid="browser-address"]', `${BASE}/fixtures/page.html`);
+  await page.keyboard.press("Enter");
+  const fixtureH1 = async () => {
+    const t = await page.frameLocator('[data-testid="browser-frame"]').locator("h1").textContent().catch(() => "");
+    return t && t.includes("URUK Test Fixture") ? t : null;
+  };
+  check("browser loads the fixture with Wi-Fi on", !!(await waitFor(fixtureH1, 12000)));
+  await page.click('[data-testid="menubar-control-center"]');
+  await page.click('[data-testid="cc-wifi"]');
+  const offState = await waitFor(() => page.locator('[data-testid="browser-offline"]').isVisible().catch(() => false));
+  check("wi-fi off: Browser shows the honest offline state", !!offState);
+  await page.click('[data-testid="cc-wifi"]');
+  await page.keyboard.press("Escape");
+  check("wi-fi on again: the page loads again", !!(await waitFor(fixtureH1, 12000)));
+  await closeWin("browser");
+
+  console.log("— phase 3: calendar reminder → notification center —");
+  await page.click('[data-testid="dock-icon-calendar"]');
+  await waitFor(() => page.locator('[data-testid="window-calendar"]').isVisible().catch(() => false));
+  const soon = new Date(Date.now() + 6 * 60000);
+  const hhmm = `${pad(soon.getHours())}:${pad(soon.getMinutes())}`;
+  const todayIso3 = `${soon.getFullYear()}-${pad(soon.getMonth() + 1)}-${pad(soon.getDate())}`;
+  await page.click(`[data-testid="calendar-day-${todayIso3}"]`);
+  await page.fill('[data-testid="calendar-event-title"]', "Rocket sync");
+  await page.fill('[data-testid="calendar-event-time"]', hhmm);
+  await page.click('[data-testid="calendar-event-save"]');
+  const banner = await waitFor(() => page.locator('[data-testid="notification-banner"]').first().isVisible().catch(() => false), 25000);
+  check("reminder: banner fires for an event due in <15 min", !!banner);
+  await page.click('[data-testid="menubar-clock"]');
+  const ncUp = await waitFor(() => page.locator('[data-testid="notification-center"]').isVisible().catch(() => false));
+  check("notification center opens from the clock", !!ncUp);
+  const ncText = await page.locator('[data-testid="notification-center"]').innerText();
+  check("notification center lists the reminder", ncText.includes("Rocket sync"), ncText.slice(0, 200));
+  check("notification center shows the weather widget", /weather/i.test(ncText), ncText.slice(0, 200));
+  await page.waitForTimeout(550);
+  await page.screenshot({ path: path.join(SHOTS, "18-notification-center.png") });
+  await page.keyboard.press("Escape");
+  await closeWin("calendar");
+
+  console.log("— phase 3: PIN lock —");
+  await page.click('[data-testid="dock-icon-settings"]');
+  await waitFor(() => page.locator('[data-testid="window-settings"]').isVisible().catch(() => false));
+  await page.click('[data-testid="settings-pane-security"]');
+  await page.fill('[data-testid="pin-new"]', "2468");
+  await page.fill('[data-testid="pin-confirm"]', "2468");
+  await page.click('[data-testid="pin-set"]');
+  const pinStatus = await waitFor(async () => {
+    const t = await page.locator('[data-testid="pin-status"]').innerText().catch(() => "");
+    return t.includes("PIN set") ? t : null;
+  });
+  check("PIN: set 2468 (status confirms)", !!pinStatus, String(pinStatus));
+  await closeWin("settings");
+  await page.click('[data-testid="menubar-system"]');
+  await page.getByRole("button", { name: "Lock Screen" }).click();
+  const pinPrompt = await waitFor(() => page.locator('[data-testid="login-pin-input"]').isVisible().catch(() => false));
+  check("PIN: lock screen asks for the PIN", !!pinPrompt);
+  await page.waitForTimeout(550);
+  await page.screenshot({ path: path.join(SHOTS, "19-lock-pin.png") });
+  await page.fill('[data-testid="login-pin-input"]', "0000");
+  await page.click('[data-testid="login-pin-submit"]');
+  const pinErr = await waitFor(() => page.locator('[data-testid="login-pin-error"]').isVisible().catch(() => false));
+  check("PIN: wrong PIN is rejected with an error", !!pinErr);
+  check("PIN: still locked after the wrong PIN", await page.locator('[data-testid="login-screen"]').isVisible().catch(() => false));
+  await page.fill('[data-testid="login-pin-input"]', "2468");
+  await page.click('[data-testid="login-pin-submit"]');
+  const unlocked = await waitFor(() => page.locator('[data-testid="dock"]').isVisible().catch(() => false));
+  check("PIN: correct PIN unlocks", !!unlocked);
+  await page.click('[data-testid="dock-icon-settings"]');
+  await waitFor(() => page.locator('[data-testid="window-settings"]').isVisible().catch(() => false));
+  await page.click('[data-testid="settings-pane-security"]');
+  await page.fill('[data-testid="pin-current"]', "2468");
+  await page.click('[data-testid="pin-remove"]');
+  const pinRemoved = await waitFor(async () => {
+    const t = await page.locator('[data-testid="pin-status"]').innerText().catch(() => "");
+    return t.includes("PIN removed") ? t : null;
+  });
+  check("PIN: removed with the current PIN", !!pinRemoved, String(pinRemoved));
+  await closeWin("settings");
+
+  console.log("— phase 3: backup export → delete → import restores —");
+  await page.click('[data-testid="dock-icon-terminal"]');
+  await waitFor(() => page.locator('[data-testid="window-terminal"]').isVisible().catch(() => false));
+  await termType(page, 'echo "markerme" > Documents/marker-p3.txt');
+  await page.click('[data-testid="dock-icon-settings"]');
+  await waitFor(() => page.locator('[data-testid="window-settings"]').isVisible().catch(() => false));
+  await page.click('[data-testid="settings-pane-backup"]');
+  const [download] = await Promise.all([
+    page.waitForEvent("download", { timeout: 20000 }),
+    page.click('[data-testid="backup-export"]'),
+  ]);
+  const dlPath = path.join(ROOT, "qa", "backup-test.urukos");
+  await download.saveAs(dlPath);
+  const fsMod = await import("node:fs");
+  const buf = fsMod.readFileSync(dlPath);
+  check("backup: download is a ZIP (PK magic)", buf[0] === 0x50 && buf[1] === 0x4b);
+  const { unzipSync } = await import("fflate");
+  const entries = unzipSync(new Uint8Array(buf));
+  const manifest = JSON.parse(new TextDecoder().decode(entries["manifest.json"]));
+  check(
+    "backup: manifest inside (format v1, marker file listed)",
+    manifest.format === "urukos-backup" && manifest.version === 1 && Array.isArray(manifest.nodes) && manifest.nodes.some((n) => n.name === "marker-p3.txt"),
+  );
+  await closeWin("settings");
+  await focusWindowViaMenu(page, /Terminal/);
+  await termType(page, "rm Documents/marker-p3.txt");
+  await termType(page, "clear");
+  await termType(page, "ls Documents");
+  const lsAfterRm = await page.locator('[data-testid="terminal"]').innerText();
+  check("backup: marker gone after rm", !lsAfterRm.includes("marker-p3"), lsAfterRm.slice(-200));
+  await page.click('[data-testid="dock-icon-settings"]');
+  await waitFor(() => page.locator('[data-testid="window-settings"]').isVisible().catch(() => false));
+  await page.click('[data-testid="settings-pane-backup"]');
+  await page.setInputFiles('[data-testid="backup-import-input"]', dlPath);
+  const confirmUp = await waitFor(() => page.locator('[data-testid="backup-confirm"]').isVisible().catch(() => false));
+  check("backup: import asks Replace vs Merge", !!confirmUp);
+  await page.click('[data-testid="backup-confirm-replace"]');
+  const backupRestored = await waitFor(async () => {
+    const t = await page.locator('[data-testid="backup-status"]').innerText().catch(() => "");
+    return t.includes("Restore complete") ? t : null;
+  }, 20000);
+  check("backup: replace-restore completes", !!backupRestored, String(backupRestored));
+  await closeWin("settings");
+  await focusWindowViaMenu(page, /Terminal/);
+  await termType(page, "cat Documents/marker-p3.txt");
+  const catBack = await page.locator('[data-testid="terminal"]').innerText();
+  check("backup: marker file is back with its content", catBack.includes("markerme"));
+
+  console.log("— phase 3: screensaver —");
+  await page.click('[data-testid="dock-icon-settings"]');
+  await waitFor(() => page.locator('[data-testid="window-settings"]').isVisible().catch(() => false));
+  await page.click('[data-testid="settings-pane-system"]');
+  await page.selectOption('[data-testid="settings-idle-timeout"]', "10");
+  await closeWin("settings");
+  const saverUp = await waitFor(() => page.locator('[data-testid="screensaver"]').isVisible().catch(() => false), 22000);
+  check("screensaver: fades in after the 10-second test idle", !!saverUp);
+  await page.keyboard.press("a");
+  const lockUp = await waitFor(() => page.locator('[data-testid="login-screen"]').isVisible().catch(() => false));
+  check("screensaver: a keypress wakes to the lock screen", !!lockUp);
+  await page.click('[data-testid="login-button"]');
+  await waitFor(() => page.locator('[data-testid="dock"]').isVisible().catch(() => false));
+  await page.click('[data-testid="dock-icon-settings"]');
+  await waitFor(() => page.locator('[data-testid="window-settings"]').isVisible().catch(() => false));
+  await page.click('[data-testid="settings-pane-system"]');
+  await page.selectOption('[data-testid="settings-idle-timeout"]', "0");
+  await closeWin("settings");
+
   await browser.close();
   server.kill();
 

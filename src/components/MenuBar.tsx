@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { APP_NAMES, useOS } from "@/store/os";
+import { useSystem } from "@/store/system";
 import { UrukMark } from "./icons";
+import { SearchGlyph, SlidersGlyph } from "./glyphs";
 
 interface DropItem {
   label: string;
@@ -166,7 +168,25 @@ export default function MenuBar() {
       {menuBtn("file", "File")}
       {menuBtn("window", "Window")}
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-1">
+        <button
+          data-testid="menubar-spotlight"
+          data-panel-toggle="spotlight"
+          title="Spotlight (Ctrl+K)"
+          className="rounded-md px-1.5 py-[3px] hover:bg-black/10 dark:hover:bg-white/15"
+          onClick={() => useSystem.getState().togglePanel("spotlight")}
+        >
+          <SearchGlyph size={13.5} />
+        </button>
+        <button
+          data-testid="menubar-control-center"
+          data-panel-toggle="controlCenter"
+          title="Control Center"
+          className="rounded-md px-1.5 py-[3px] hover:bg-black/10 dark:hover:bg-white/15"
+          onClick={() => useSystem.getState().togglePanel("controlCenter")}
+        >
+          <SlidersGlyph size={14} />
+        </button>
         <button
           data-testid="menubar-appearance-toggle"
           title={os.appearance === "dark" ? "Switch to Light" : "Switch to Dark"}
@@ -175,9 +195,15 @@ export default function MenuBar() {
         >
           {os.appearance === "dark" ? "☾" : "☀"}
         </button>
-        <span className="text-[13px] tabular-nums" data-testid="menubar-clock">
+        <button
+          data-testid="menubar-clock"
+          data-panel-toggle="notifCenter"
+          title="Notification Center"
+          className="rounded-md px-1.5 py-[2px] text-[13px] tabular-nums hover:bg-black/10 dark:hover:bg-white/15"
+          onClick={() => useSystem.getState().togglePanel("notifCenter")}
+        >
           {formatClock(now)}
-        </span>
+        </button>
       </div>
     </div>
   );

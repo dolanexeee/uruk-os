@@ -61,6 +61,17 @@ export default function Calendar({ win }: { win: WinState }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [win.id]);
 
+  /* deep-link: Spotlight / widgets can ask Calendar to show a date */
+  useEffect(() => {
+    const d = win.props.date;
+    if (!d) return;
+    const dt = new Date(`${d}T00:00:00`);
+    if (Number.isNaN(dt.getTime())) return;
+    setViewYear(dt.getFullYear());
+    setViewMonth(dt.getMonth());
+    setSelectedDate(d);
+  }, [win.props.date]);
+
   /* load events.json (creating the folder/file on first use) */
   useEffect(() => {
     let live = true;

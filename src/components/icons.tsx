@@ -404,3 +404,24 @@ export function AppIcon({ app, size = 48, className }: { app: string; size?: num
       return <FileIcon size={size} className={className} />;
   }
 }
+
+/** Launchpad — an original 3×3 grid glyph (rounded tiles on glass). */
+export function LaunchpadIcon({ size = 48, className }: IconProps) {
+  const tiles = [8, 25, 42];
+  return (
+    <svg {...base(size)} className={className}>
+      <defs>
+        <linearGradient id="ic-launch-bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#5a5a60" />
+          <stop offset="1" stopColor="#2c2c2e" />
+        </linearGradient>
+      </defs>
+      <rect x="4" y="4" width="56" height="56" rx="13" fill="url(#ic-launch-bg)" />
+      {tiles.map((y) =>
+        tiles.map((x) => (
+          <rect key={`${x}-${y}`} x={x} y={y} width="14" height="14" rx="4" fill="#f5f5f7" opacity="0.92" />
+        )),
+      )}
+    </svg>
+  );
+}

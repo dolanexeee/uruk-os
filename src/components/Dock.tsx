@@ -1,7 +1,8 @@
 import React, { useRef, useState } from "react";
 import { APP_NAMES, useOS, type AppId } from "@/store/os";
+import { useSystem } from "@/store/system";
 import { TRASH_ID, childrenOf, useFS } from "@/lib/fs";
-import { AppIcon, TrashIcon } from "./icons";
+import { AppIcon, LaunchpadIcon, TrashIcon } from "./icons";
 import ContextMenu, { useContextMenu, type MenuEntry } from "./ContextMenu";
 
 const DOCK_APPS: AppId[] = [
@@ -134,6 +135,21 @@ export default function Dock() {
               (e) => onIconContext(e, app),
               <AppIcon app={app} size={BASE - 4} />,
             ),
+          )}
+
+          {iconButton(
+            "launchpad",
+            "Launchpad",
+            false,
+            () => useSystem.getState().togglePanel("launchpad"),
+            (e) =>
+              open(e, [
+                {
+                  label: "Open Launchpad",
+                  action: () => useSystem.getState().setPanel("launchpad"),
+                },
+              ]),
+            <LaunchpadIcon size={BASE - 4} />,
           )}
 
           <div className="mx-1 w-px self-stretch bg-black/15 dark:bg-white/15" />

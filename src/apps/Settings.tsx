@@ -4,9 +4,14 @@ import { formatBytes, totalSize, useFS } from "@/lib/fs";
 import { UrukMark } from "@/components/icons";
 import { WALLPAPERS } from "@/components/wallpapers";
 
+import { BackupPane, SecurityPane, SystemPane } from "./settings-panes";
+
 const PANES = [
   { id: "appearance", name: "Appearance", glyph: "◐" },
   { id: "wallpaper", name: "Wallpaper", glyph: "🖼" },
+  { id: "system", name: "System", glyph: "⚙" },
+  { id: "security", name: "Security", glyph: "🔒" },
+  { id: "backup", name: "Backup", glyph: "💾" },
   { id: "about", name: "About", glyph: "ℹ" },
 ] as const;
 
@@ -179,6 +184,12 @@ export default function Settings({ win }: { win: WinState }) {
           </div>
         )}
 
+        {pane === "system" && <SystemPane />}
+
+        {pane === "security" && <SecurityPane />}
+
+        {pane === "backup" && <BackupPane />}
+
         {pane === "about" && (
           <div data-testid="settings-about" className="flex flex-col items-center pt-2 text-center">
             <div className="mb-2 text-neutral-800 dark:text-neutral-100">
@@ -186,7 +197,7 @@ export default function Settings({ win }: { win: WinState }) {
             </div>
             <div className="text-[22px] font-bold tracking-tight">URUK OS</div>
             <div className="mb-5 text-[13px] text-neutral-500 dark:text-neutral-400">
-              Version 0.2.0 · Browser build
+              Version 0.3.0 · Browser build
             </div>
             <dl className="w-full max-w-sm space-y-2 text-left text-[13px]">
               <div className="flex justify-between border-b border-black/5 pb-1.5 dark:border-white/5">

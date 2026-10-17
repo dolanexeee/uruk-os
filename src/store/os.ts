@@ -20,6 +20,8 @@ export interface WindowProps {
   folderId?: string;
   fileId?: string;
   pane?: string;
+  /** Calendar deep-link (Spotlight / widgets): show this YYYY-MM-DD. */
+  date?: string;
 }
 
 export interface WinState {

@@ -5,3 +5,4 @@ qa/screenshots/
 *.log
 .DS_Store
 .vercel
+qa/backup-test.urukos

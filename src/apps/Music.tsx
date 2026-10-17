@@ -9,6 +9,7 @@ import {
 } from "@/lib/fs";
 import { inTrash, isAudioNode } from "@/lib/associations";
 import { useOS, type WinState } from "@/store/os";
+import { useSystem } from "@/store/system";
 
 /**
  * Music — plays the real audio files stored in the file system.
@@ -37,7 +38,10 @@ export default function Music({ win }: { win: WinState }) {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(0.85);
+  // Master volume lives in the system store: Control Center's Sound
+  // slider and this app's slider are the same control.
+  const volume = useSystem((s) => s.volume);
+  const setVolume = useSystem((s) => s.setVolume);
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<RepeatMode>("off");
   const [durations, setDurations] = useState<Record<string, number>>({});
@@ -138,6 +142,26 @@ export default function Music({ win }: { win: WinState }) {
       a.pause();
     }
   };
+  const togglePlayRef = useRef(togglePlay);
+  togglePlayRef.current = togglePlay;
+
+  /* publish now-playing + register play/pause for system widgets */
+  const setNowPlaying = useSystem((s) => s.setNowPlaying);
+  const registerPlaybackToggle = useSystem((s) => s.registerPlaybackToggle);
+  useEffect(() => {
+    registerPlaybackToggle(() => togglePlayRef.current());
+    return () => {
+      registerPlaybackToggle(null);
+      setNowPlaying(null);
+    };
+  }, [registerPlaybackToggle, setNowPlaying]);
+  useEffect(() => {
+    if (current) {
+      setNowPlaying({ title: current.name, subtitle: "Music", playing });
+    } else {
+      setNowPlaying(null);
+    }
+  }, [current, playing, setNowPlaying]);
 
   const stepTrack = (delta: number) => {
     if (!tracks.length) return;

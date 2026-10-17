@@ -1,5 +1,6 @@
 import { openDB, type IDBPDatabase } from "idb";
 import { create } from "zustand";
+import { notify } from "@/store/notifications";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -280,6 +281,10 @@ interface FSStore {
   removeForever: (id: string) => Promise<void>;
   emptyTrash: () => Promise<void>;
   importFiles: (parentId: string, files: File[]) => Promise<FSNode[]>;
+  /** Replace the ENTIRE file system with the given nodes (backup restore). */
+  replaceAllNodes: (nodes: FSNode[]) => Promise<void>;
+  /** Insert nodes alongside the current ones (backup merge restore). */
+  addNodes: (nodes: FSNode[]) => Promise<void>;
 }
 
 let loadPromise: Promise<void> | null = null;
@@ -466,7 +471,33 @@ export const useFS = create<FSStore>((set, get) => ({
         );
       }
     }
+    if (out.length) {
+      const dest = get().nodes[parentId]?.name ?? "folder";
+      notify(
+        "Finder",
+        "Import complete",
+        `${out.length} file${out.length === 1 ? "" : "s"} imported into ${dest}.`,
+      );
+    }
     return out;
+  },
+
+  replaceAllNodes: async (nodes) => {
+    const existing = await dbAll();
+    if (existing.length) await dbDeleteMany(existing.map((n) => n.id));
+    if (nodes.length) await dbPutMany(nodes);
+    const map: NodeMap = {};
+    for (const n of nodes) map[n.id] = n;
+    set({ nodes: map, loaded: true });
+  },
+
+  addNodes: async (nodes) => {
+    if (nodes.length) await dbPutMany(nodes);
+    set((s) => {
+      const next = { ...s.nodes };
+      for (const n of nodes) next[n.id] = n;
+      return { nodes: next };
+    });
   },
 }));
 

@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useOS, type WinState } from "@/store/os";
+import { useSystem } from "@/store/system";
+import { WifiOffGlyph } from "@/components/glyphs";
 
 /**
  * URUK Browser — a real (if small) web browser: tabs, history, reload,
@@ -62,6 +64,7 @@ const QUICK_LINKS: { name: string; url: string; blurb: string }[] = [
 
 export default function BrowserApp({ win }: { win: WinState }) {
   const os = useOS();
+  const wifiOn = useSystem((s) => s.wifiOn);
   const focused = os.focusedId === win.id;
   const [tabs, setTabs] = useState<Tab[]>(() => [newTab()]);
   const [activeId, setActiveId] = useState<number>(() => tabCounter);
@@ -273,7 +276,23 @@ export default function BrowserApp({ win }: { win: WinState }) {
 
       {/* content */}
       <div className="relative min-h-0 flex-1 bg-white">
-        {tabs.map((t) =>
+        {!wifiOn && (
+          <div
+            data-testid="browser-offline"
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-neutral-50 px-8 text-center dark:bg-neutral-900"
+          >
+            <WifiOffGlyph size={40} className="text-neutral-400" />
+            <div className="text-[16px] font-semibold text-neutral-700 dark:text-neutral-200">
+              Wi-Fi is off
+            </div>
+            <p className="max-w-sm text-[13px] leading-5 text-neutral-500 dark:text-neutral-400">
+              This machine's network switch is off, so no pages can load.
+              Turn Wi-Fi back on in Control Center (top-right of the menu
+              bar) and pages will load again.
+            </p>
+          </div>
+        )}
+        {wifiOn && tabs.map((t) =>
           t.url === START_URL ? (
             t.id === activeId ? (
               <StartPage key={t.id} onNavigate={navigate} />
