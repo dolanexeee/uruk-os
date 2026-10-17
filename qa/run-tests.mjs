@@ -999,6 +999,54 @@ async function main() {
   }, 90000);
   check("code: offline Python run fails HONESTLY (no fake output)", !!pyOffline, (pyOffline ?? "").slice(0, 200));
 
+  console.log("— phase 5b: python stdin guidance (input() with an empty stdin box) —");
+  await page.click('[data-testid="dock-icon-terminal"]');
+  await waitFor(() => page.locator('[data-testid="window-terminal"]').isVisible().catch(() => false));
+  await termType(page, `printf 'name = input("Name? ")\\nprint("MATCH" if name == "Abdula" else "DENIED")\\n' > Documents/namecheck.py`);
+  await closeWin("terminal");
+  await page.click('[data-testid="dock-icon-code"]');
+  await waitFor(() => page.locator('[data-testid="window-code"]').isVisible().catch(() => false));
+  await openInCode("namecheck.py");
+  const ncLang = await waitFor(async () => ((await editorAttr("data-language")) === "python" ? true : null));
+  check("code: namecheck.py opens as Python", !!ncLang);
+  await page.click('[data-testid="code-run"]');
+  const guidance = await waitFor(async () => {
+    const t = await page.locator('[data-testid="code-output"]').innerText().catch(() => "");
+    return t.includes("asks for input") ? t : null;
+  }, 15000);
+  check("code: input() + empty stdin → guidance notice instead of a traceback", !!guidance, (guidance ?? "").slice(0, 200));
+  check("code: guidance path shows NO EOFError", guidance ? !guidance.includes("EOFError") : false);
+  const focusOk = await waitFor(async () => {
+    const v = await page.evaluate(() => document.activeElement?.getAttribute("data-testid"));
+    return v === "code-stdin" ? v : null;
+  }, 5000);
+  check("code: stdin box is focused by the guidance", !!focusOk);
+  const stdinLabel = await page.locator('label[for="code-stdin-input"]').innerText().catch(() => "");
+  check("code: stdin field is labeled 'Program input (stdin)'", stdinLabel.includes("Program input (stdin)"), stdinLabel);
+  const stdinPh = await page.locator('[data-testid="code-stdin"]').getAttribute("placeholder");
+  check("code: stdin placeholder teaches the input() flow", (stdinPh ?? "").includes("will ask for input"), stdinPh ?? "");
+  // A second Run press runs anyway: offline that surfaces the honest
+  // runtime-load failure, proving the run was really attempted.
+  await page.click('[data-testid="code-run"]');
+  const secondRun = await waitFor(async () => {
+    const t = await page.locator('[data-testid="code-output"]').innerText().catch(() => "");
+    return t.includes("Couldn't load the Python runtime") ? t : null;
+  }, 90000);
+  check("code: second Run press runs anyway (guidance pauses, never blocks)", !!secondRun, (secondRun ?? "").slice(0, 200));
+  // Per-file memory: typed stdin survives closing and reopening the file.
+  await page.fill('[data-testid="code-stdin"]', "Abdula");
+  await closeWin("code");
+  await page.click('[data-testid="dock-icon-code"]');
+  await waitFor(() => page.locator('[data-testid="window-code"]').isVisible().catch(() => false));
+  await openInCode("namecheck.py");
+  await waitFor(async () => ((await editorAttr("data-language")) === "python" ? true : null));
+  await page.click('[data-testid="code-run"]');
+  const stdinRestored = await waitFor(async () => {
+    const v = await page.locator('[data-testid="code-stdin"]').inputValue().catch(() => "");
+    return v === "Abdula" ? v : null;
+  }, 10000);
+  check("code: stdin text is remembered per file (restored after reopen)", !!stdinRestored);
+
   console.log("— phase 5: uruk code templates write real files —");
   await page.click('[data-testid="code-new"]');
   await waitFor(() => page.locator('[data-testid="code-new-form"]').isVisible().catch(() => false));

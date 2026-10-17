@@ -48,7 +48,7 @@ export default function Launchpad() {
       }}
     >
       <div className="mx-auto flex min-h-full w-[min(880px,94vw)] flex-col items-center px-6 py-12">
-        <div className="mb-10 flex w-72 items-center gap-2 rounded-lg bg-white/15 px-3 py-1.5 ring-1 ring-white/25 backdrop-blur">
+        <div className="mb-10 flex w-72 items-center gap-2 rounded-[10px] bg-white/15 px-3 py-1.5 ring-1 ring-white/25 backdrop-blur">
           <SearchGlyph size={14} className="text-white/80" />
           <input
             ref={inputRef}

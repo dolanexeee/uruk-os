@@ -54,7 +54,7 @@ export default function ContextMenu({ menu, onClose }: Props) {
   return (
     <div
       ref={ref}
-      className="fixed z-[9999] min-w-[210px] rounded-lg p-1 fade-in
+      className="fixed z-[9999] min-w-[210px] rounded-xl p-1 fade-in
         bg-white/70 dark:bg-neutral-800/70 backdrop-blur-2xl
         shadow-[0_12px_40px_rgba(0,0,0,0.35)] ring-1 ring-black/10 dark:ring-white/15 text-[13px]"
       style={{ left: pos.x, top: pos.y }}
@@ -68,7 +68,7 @@ export default function ContextMenu({ menu, onClose }: Props) {
           <button
             key={i}
             disabled={entry.disabled}
-            className={`flex w-full items-center rounded-md px-2.5 py-[3px] text-left leading-5
+            className={`flex w-full items-center rounded-lg px-2.5 py-[3px] text-left leading-5
               ${
                 entry.disabled
                   ? "text-neutral-400 dark:text-neutral-500"

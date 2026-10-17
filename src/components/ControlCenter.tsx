@@ -40,16 +40,16 @@ function ToggleTile({
       data-testid={testid}
       data-on={on}
       onClick={onClick}
-      className="flex items-center gap-2.5 rounded-2xl bg-white/55 p-2.5 text-left ring-1 ring-black/5 transition hover:bg-white/70 dark:bg-white/10 dark:ring-white/10 dark:hover:bg-white/15"
+      className="flex items-center gap-2 rounded-2xl bg-white/55 p-2.5 text-left ring-1 ring-black/5 transition hover:bg-white/70 dark:bg-white/10 dark:ring-white/10 dark:hover:bg-white/15"
     >
       <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition-colors"
+        className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full text-white transition-colors"
         style={{ backgroundColor: on ? color : "#8e8e93" }}
       >
         {glyph}
       </span>
       <span className="min-w-0 leading-tight">
-        <span className="block truncate text-[12.5px] font-semibold text-neutral-800 dark:text-neutral-50">
+        <span className="block truncate text-[12px] font-semibold text-neutral-800 dark:text-neutral-50">
           {label}
         </span>
         <span className="block text-[11.5px] text-neutral-500 dark:text-neutral-400">{state}</span>
@@ -94,7 +94,7 @@ export default function ControlCenter() {
     <div
       ref={ref}
       data-testid="control-center"
-      className="fade-in fixed right-2.5 top-9 z-[9600] w-[324px] rounded-[26px] bg-white/60 p-3 shadow-[0_20px_60px_rgba(0,0,0,0.45)] ring-1 ring-black/10 backdrop-blur-3xl dark:bg-neutral-800/70 dark:ring-white/15"
+      className="fade-in fixed right-2.5 top-9 z-[9600] w-[336px] rounded-[26px] bg-white/60 p-3 shadow-[0_20px_60px_rgba(0,0,0,0.45)] ring-1 ring-black/10 backdrop-blur-3xl dark:bg-neutral-800/70 dark:ring-white/15"
     >
       <div className="grid grid-cols-2 gap-2.5">
         <ToggleTile

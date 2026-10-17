@@ -103,7 +103,7 @@ body {
     transform 0.18s ease-out;
 }
 .fade-in {
-  animation: uruk-fade-in 0.35s ease both;
+  animation: uruk-fade-in 0.2s ease-out both;
 }
 
 .window-shadow {
@@ -153,4 +153,14 @@ textarea {
 }
 .shake {
   animation: uruk-shake 0.45s ease both;
+}
+
+/* ---------- v0.6.1: Uruk Code stdin guidance pulse ---------- */
+@keyframes uruk-stdin-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent); }
+  35% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent); }
+}
+.stdin-urged {
+  animation: uruk-stdin-pulse 1.1s ease-in-out 3;
+  border-color: var(--accent) !important;
 }

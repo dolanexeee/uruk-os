@@ -239,7 +239,7 @@ export default function Spotlight() {
         if (e.target === e.currentTarget) closePanels();
       }}
     >
-      <div className="fade-in w-[min(620px,92vw)] overflow-hidden rounded-2xl bg-white/75 shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-black/15 backdrop-blur-3xl dark:bg-neutral-800/80 dark:ring-white/15">
+      <div className="fade-in w-[min(620px,92vw)] overflow-hidden rounded-[20px] bg-white/75 shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-black/15 backdrop-blur-3xl dark:bg-neutral-800/80 dark:ring-white/15">
         <div className="flex items-center gap-3 px-4 py-3">
           <SearchGlyph size={22} className="shrink-0 text-neutral-500 dark:text-neutral-300" />
           <input

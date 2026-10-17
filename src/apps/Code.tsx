@@ -23,6 +23,7 @@ import {
   type LanguageDef,
 } from "@/lib/languages";
 import { isPythonReady, runPython, type BridgeFile } from "@/lib/pyodide";
+import { codeStdinKeyFor, getActiveAccountId } from "@/lib/accounts";
 import { useOS, type WinState } from "@/store/os";
 import { useSystem } from "@/store/system";
 
@@ -39,6 +40,13 @@ import { useSystem } from "@/store/system";
  * runs on real CPython-in-WASM (Pyodide, lazily loaded), and every
  * other language shows an "editing + highlighting only" note instead
  * of a Run button that could not keep its promise.
+ *
+ * Python stdin: input() reads from a per-file stdin box whose text is
+ * remembered per file path (account-scoped). A program that asks for
+ * input while the box is empty gets a guidance pause — notice, focus,
+ * highlight — instead of a raw EOFError traceback; a second Run press
+ * still runs it, and input() calls that outnumber the typed lines
+ * keep the honest EOFError hint.
  */
 
 interface OutputEntry {
@@ -47,6 +55,37 @@ interface OutputEntry {
 }
 
 const LS_FONT = "uruk-code-font-size";
+
+/** Does this Python source ask the user for input()? (Attribute calls
+ * like `obj.input()` and longer identifiers like `myinput(` don't count.) */
+const USES_INPUT_RE = /(^|[^\w.])input\s*\(/;
+
+/* Per-file stdin memory: the text typed into the stdin box is kept per
+ * file path in account-scoped storage (like the other prefs), so
+ * re-running the same script keeps its answers. */
+function loadStdinMemory(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(codeStdinKeyFor(getActiveAccountId()));
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === "object") return parsed as Record<string, string>;
+    }
+  } catch {
+    /* ignore */
+  }
+  return {};
+}
+
+function rememberStdin(filePath: string, text: string): void {
+  try {
+    const map = loadStdinMemory();
+    if (text) map[filePath] = text;
+    else delete map[filePath];
+    localStorage.setItem(codeStdinKeyFor(getActiveAccountId()), JSON.stringify(map));
+  } catch {
+    /* ignore */
+  }
+}
 
 export default function Code({ win }: { win: WinState }) {
   const nodes = useFS((s) => s.nodes);
@@ -76,8 +115,17 @@ export default function Code({ win }: { win: WinState }) {
   const [templateId, setTemplateId] = useState("blank");
   /** Manual per-file language choice (tab-bar switcher); wins over the extension. */
   const [langOverride, setLangOverride] = useState<Record<string, string>>({});
-  /** Text fed to Python's input() on the next run. */
-  const [stdinText, setStdinText] = useState("");
+  /** Text fed to Python's input() on the next run (per-file, remembered). */
+  const [stdinText, setStdinTextState] = useState("");
+  /** FS path of the file `stdinText` currently belongs to. */
+  const stdinPathRef = useRef<string | null>(null);
+  /** Does the active document call input()? Drives the stdin field's prominence. */
+  const [usesInput, setUsesInput] = useState(false);
+  /** One-shot highlight on the stdin box right after the guidance notice. */
+  const [stdinUrged, setStdinUrged] = useState(false);
+  /** Guidance already shown for this exact file + code: a second Run
+   * press runs anyway (the guidance is a pause, not a block). */
+  const guidedRef = useRef<{ id: string; code: string } | null>(null);
   const [pyBusy, setPyBusy] = useState(false);
   /** Lezer node names of the active document — the parse, made visible. */
   const [tokensAttr, setTokensAttr] = useState("");
@@ -91,6 +139,20 @@ export default function Code({ win }: { win: WinState }) {
   const themeComp = useRef(new Compartment());
   const runIdRef = useRef(0);
   const runFrameRef = useRef<HTMLIFrameElement>(null);
+  const stdinRef = useRef<HTMLTextAreaElement>(null);
+  /** Set by buildState: recomputes `usesInput` on every doc change. */
+  const usesInputCheckRef = useRef<((doc: string) => void) | null>(null);
+  usesInputCheckRef.current = (doc: string) => {
+    const v = USES_INPUT_RE.test(doc);
+    setUsesInput((prev) => (prev === v ? prev : v));
+  };
+
+  /** Update the stdin text for the active file and remember it per file. */
+  const setStdinText = useCallback((text: string) => {
+    setStdinTextState(text);
+    if (stdinPathRef.current) rememberStdin(stdinPathRef.current, text);
+    if (text.trim()) setStdinUrged(false);
+  }, []);
   const runTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeNode = activeId ? nodes[activeId] : undefined;
@@ -134,6 +196,7 @@ export default function Code({ win }: { win: WinState }) {
             if (u.docChanged) {
               const saved = savedRef.current.get(fileId) ?? "";
               setDirty((d) => ({ ...d, [fileId]: u.state.doc.toString() !== saved }));
+              usesInputCheckRef.current?.(u.state.doc.toString());
             }
           }),
         ],
@@ -162,6 +225,12 @@ export default function Code({ win }: { win: WinState }) {
         st = buildState(fileId, text, node.name);
         statesRef.current.set(fileId, st);
       }
+      // stdin memory + input() prominence follow the file being opened
+      const filePath = pathOf(fs().nodes, fileId);
+      stdinPathRef.current = filePath;
+      setStdinTextState(loadStdinMemory()[filePath] ?? "");
+      setStdinUrged(false);
+      setUsesInput(USES_INPUT_RE.test(st.doc.toString()));
       activeRef.current = fileId;
       setActiveId(fileId);
       if (view) view.setState(st);
@@ -344,6 +413,27 @@ export default function Code({ win }: { win: WinState }) {
     setPanel("output");
     setOutput([]);
     setRunStamp(new Date().toLocaleTimeString());
+
+    // Pre-run guidance: a program that calls input() with an empty
+    // stdin box would only earn the user a raw EOFError traceback.
+    // Pause here instead — explain, focus the box, highlight it. The
+    // guidance is a pause, not a block: typed input, or a second Run
+    // press, runs the program for real.
+    if (USES_INPUT_RE.test(code) && stdinText.trim() === "") {
+      const g = guidedRef.current;
+      if (!g || g.id !== id || g.code !== code) {
+        guidedRef.current = { id, code };
+        setStdinUrged(true);
+        pushOut(
+          "info",
+          "This program asks for input — type each answer on its own line in the stdin box, then press Run again.",
+        );
+        setTimeout(() => stdinRef.current?.focus(), 60);
+        return;
+      }
+    }
+    guidedRef.current = null;
+
     setPyBusy(true);
     const started = Date.now();
 
@@ -761,19 +851,34 @@ export default function Code({ win }: { win: WinState }) {
             <div className="flex items-center gap-2 border-b border-black/10 bg-[#26282e] px-2.5 py-1.5 dark:border-white/10">
               <label
                 htmlFor="code-stdin-input"
-                className="shrink-0 font-mono text-[11px] text-neutral-400"
+                className={`shrink-0 text-[11px] ${
+                  usesInput
+                    ? "font-semibold text-[var(--accent)]"
+                    : "font-mono text-neutral-400"
+                }`}
                 title="Lines handed to Python's input() calls, in order"
               >
-                stdin →
+                Program input (stdin)
               </label>
               <textarea
+                ref={stdinRef}
                 id="code-stdin-input"
                 data-testid="code-stdin"
                 value={stdinText}
                 rows={1}
                 onChange={(e) => setStdinText(e.target.value)}
-                placeholder="lines for input(), one per line"
-                className="uruk-scroll min-w-0 flex-1 resize-none rounded border border-white/10 bg-[#1d1f24] px-2 py-1 font-mono text-[12px] text-neutral-100 outline-none placeholder:text-neutral-500"
+                placeholder={
+                  usesInput
+                    ? "The program will ask for input — type each answer here, one per line"
+                    : "lines for input(), one per line"
+                }
+                className={`uruk-scroll min-w-0 flex-1 resize-none rounded border bg-[#1d1f24] px-2 py-1 font-mono text-[12px] text-neutral-100 outline-none placeholder:text-neutral-500 ${
+                  stdinUrged
+                    ? "stdin-urged"
+                    : usesInput
+                      ? "border-[var(--accent)] ring-1 ring-[var(--accent)]/50"
+                      : "border-white/10"
+                }`}
               />
             </div>
           )}

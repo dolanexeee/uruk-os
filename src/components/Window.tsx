@@ -136,7 +136,7 @@ export default function Window({
   if (win.minimized && !win.minimizing) return null;
 
   const cls = [
-    "fixed flex flex-col overflow-hidden rounded-[10px]",
+    "fixed flex flex-col overflow-hidden rounded-xl",
     focused ? "window-shadow" : "window-shadow-unfocused",
     win.closing ? "window-closing" : win.minimizing ? "window-minimizing" : "window-opening",
     "bg-neutral-100 dark:bg-neutral-800",
@@ -171,15 +171,24 @@ export default function Window({
     >
       {/* title bar */}
       <div
-        className="relative flex shrink-0 items-center select-none
-          bg-neutral-200/80 dark:bg-neutral-700/60"
+        className={`relative flex shrink-0 items-center select-none ${
+          focused
+            ? "bg-neutral-200/80 dark:bg-neutral-700/60"
+            : "bg-neutral-100 dark:bg-neutral-800/70"
+        }`}
         style={{ height: TITLEBAR_H }}
         onMouseDown={beginDrag("move")}
         onDoubleClick={() => useOS.getState().toggleMaximize(win.id)}
         data-testid="window-titlebar"
       >
         <TrafficLights win={win} focused={focused} />
-        <div className="pointer-events-none absolute inset-x-0 text-center text-[13px] font-semibold text-neutral-700 dark:text-neutral-200 truncate px-24">
+        <div
+          className={`pointer-events-none absolute inset-x-0 truncate px-24 text-center text-[13px] font-semibold ${
+            focused
+              ? "text-neutral-700 dark:text-neutral-200"
+              : "text-neutral-400 dark:text-neutral-500"
+          }`}
+        >
           {win.title}
         </div>
         <div className="ml-auto flex items-center pr-2">{titlebarExtra}</div>

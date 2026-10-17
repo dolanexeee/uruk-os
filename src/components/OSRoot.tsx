@@ -89,7 +89,7 @@ function BootScreen() {
   return (
     <div className="flex h-full flex-col items-center justify-center bg-black text-white" data-testid="boot-screen">
       <UrukMark size={86} />
-      <div className="mt-5 text-[26px] font-semibold tracking-[0.35em]">URUK&nbsp;OS</div>
+      <div className="mt-5 translate-x-[0.175em] text-[26px] font-semibold tracking-[0.35em]">URUK&nbsp;OS</div>
       <div className="mt-14 h-[5px] w-52 overflow-hidden rounded-full bg-white/20">
         <div
           className="h-full rounded-full bg-white transition-[width] duration-100"
@@ -335,7 +335,7 @@ function LoginScreen() {
           </>
         )}
       </div>
-      <div className="absolute bottom-5 text-[12px] tracking-[0.3em] text-white/60">URUK&nbsp;OS</div>
+      <div className="absolute bottom-5 translate-x-[0.15em] text-[12px] tracking-[0.3em] text-white/60">URUK&nbsp;OS</div>
     </div>
   );
 }

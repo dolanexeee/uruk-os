@@ -124,7 +124,7 @@ export default function MenuBar() {
   const renderDrop = (key: string) =>
     openMenu === key && (
       <div
-        className={`absolute ${key === "user" ? "right-0" : "left-0"} top-full mt-[2px] min-w-[230px] rounded-lg p-1 fade-in
+        className={`absolute ${key === "user" ? "right-0" : "left-0"} top-full mt-[2px] min-w-[230px] rounded-xl p-1 fade-in
           bg-white/70 dark:bg-neutral-800/75 backdrop-blur-2xl
           shadow-[0_12px_40px_rgba(0,0,0,0.35)] ring-1 ring-black/10 dark:ring-white/15 text-[13px] z-[9998]`}
       >
@@ -135,7 +135,7 @@ export default function MenuBar() {
             <button
               key={i}
               disabled={item.disabled}
-              className={`flex w-full rounded-md px-2.5 py-[3px] text-left leading-5 ${
+              className={`flex w-full rounded-lg px-2.5 py-[3px] text-left leading-5 ${
                 item.disabled
                   ? "text-neutral-400 dark:text-neutral-500"
                   : "text-neutral-800 dark:text-neutral-100 hover:bg-[var(--accent)] hover:text-white"

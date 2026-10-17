@@ -2,6 +2,8 @@ node_modules/
 .next/
 out/
 qa/screenshots/
+qa/polish-before/
+qa/polish-after/
 *.log
 .DS_Store
 .vercel

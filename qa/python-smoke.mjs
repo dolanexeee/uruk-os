@@ -7,7 +7,9 @@
  * egress proxy as a structured option (the live-smoke pattern), which
  * makes the real Python path testable end-to-end:
  *   print(6*7) → 42 · sibling-file bridge via open() · the spec's
- *   sum-of-squares → 285 · input() fed from the stdin box.
+ *   sum-of-squares → 285 · input() with the pre-run stdin guidance
+ *   (v0.7.0: no more learning-by-EOFError) · a name-check script fed
+ *   from the stdin box · the mid-run EOF fallback hint.
  * It also captures the Two Rivers screenshot with real OSM tiles.
  *
  * Usage:
@@ -105,6 +107,12 @@ try {
   await term(`echo 'print(open("sibling.txt").read())' > Documents/reader.py`);
   await term(`echo 'print(sum(i*i for i in range(10)))' > Documents/sumsq.py`);
   await term(`echo 'name = input("Name? "); print("Hello, " + name)' > Documents/greeter.py`);
+  await term(`echo 'a = "Abdula"' > Documents/gate.py`);
+  await term(`echo 'kla = input("Enter The Name: ")' >> Documents/gate.py`);
+  await term(`echo 'print("ACCESS GRANTED" if kla == a else "ACCESS DENIED")' >> Documents/gate.py`);
+  await term(`echo 'first = input("First? ")' > Documents/twoq.py`);
+  await term(`echo 'second = input("Second? ")' >> Documents/twoq.py`);
+  await term(`echo 'print(first, second)' >> Documents/twoq.py`);
   await page.locator('[data-testid="window-terminal"]').getByLabel("Close").click();
   await sleep(400);
 
@@ -157,13 +165,44 @@ try {
   const out285 = await runAndWait(/(^|\n)285(\n|$)/, 120000);
   check("python: print(sum(i*i for i in range(10))) prints 285", !!out285, (out285 ?? "").slice(0, 200));
 
-  console.log("— python smoke: input() fed from the stdin box —");
+  console.log("— python smoke: input() pre-run guidance, then the stdin box —");
   await openInCode("greeter.py");
-  const eofHint = await runAndWait(/ran out of stdin/, 120000);
-  check("python: input() with an empty stdin fails honestly (EOFError hint)", !!eofHint, (eofHint ?? "").slice(0, 200));
+  await page.click('[data-testid="code-run"]');
+  const guideOut = await waitFor(async () => {
+    const t = await outputText();
+    return t.includes("asks for input") ? t : null;
+  }, 60000);
+  check(
+    "python: input() + empty stdin → guidance notice, NO EOFError traceback",
+    !!guideOut && !guideOut.includes("EOFError"),
+    (guideOut ?? "").slice(0, 200),
+  );
   await page.fill('[data-testid="code-stdin"]', "Gilgamesh");
   const outGreet = await runAndWait(/Hello, Gilgamesh/, 120000);
   check("python: input() reads the stdin box → 'Hello, Gilgamesh'", !!outGreet, (outGreet ?? "").slice(0, 200));
+
+  console.log("— python smoke: name-check script fed 'Abdula' —");
+  await openInCode("gate.py");
+  await page.click('[data-testid="code-run"]');
+  const gateGuide = await waitFor(async () => {
+    const t = await outputText();
+    return t.includes("asks for input") ? t : null;
+  }, 60000);
+  check("python: a fresh input() file gets the guidance first too", !!gateGuide, (gateGuide ?? "").slice(0, 200));
+  await page.fill('[data-testid="code-stdin"]', "Abdula");
+  const outGate = await runAndWait(/ACCESS GRANTED/, 120000);
+  check("python: name-check script with stdin 'Abdula' prints ACCESS GRANTED", !!outGate, (outGate ?? "").slice(0, 200));
+
+  console.log("— python smoke: stdin running out mid-run keeps the EOF hint —");
+  await openInCode("twoq.py");
+  await page.click('[data-testid="code-run"]');
+  await waitFor(async () => {
+    const t = await outputText();
+    return t.includes("asks for input") ? t : null;
+  }, 60000);
+  await page.fill('[data-testid="code-stdin"]', "solo");
+  const eofHint = await runAndWait(/ran out of stdin/, 120000);
+  check("python: fewer stdin lines than input() calls → EOFError hint (fallback intact)", !!eofHint, (eofHint ?? "").slice(0, 200));
 
   console.log("— maps smoke: real Nominatim + real OSM tiles —");
   await page.click('[data-testid="dock-icon-maps"]');
