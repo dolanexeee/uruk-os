@@ -3,6 +3,7 @@ import { useFS } from "@/lib/fs";
 import { useSystem } from "@/store/system";
 import { notify } from "@/store/notifications";
 import { eventDateTime, readEvents, ymd } from "@/lib/events";
+import { getActiveAccountId, remindedKeyFor } from "@/lib/accounts";
 
 /**
  * Background system services (Phase 3) — mounted for the desktop
@@ -15,11 +16,11 @@ import { eventDateTime, readEvents, ymd } from "@/lib/events";
  *    browser session).
  */
 
-const FIRED_KEY = "uruk-os-reminded-v1";
+const firedKey = () => remindedKeyFor(getActiveAccountId());
 
 function loadFired(): Set<string> {
   try {
-    return new Set(JSON.parse(localStorage.getItem(FIRED_KEY) ?? "[]") as string[]);
+    return new Set(JSON.parse(localStorage.getItem(firedKey()) ?? "[]") as string[]);
   } catch {
     return new Set();
   }
@@ -30,7 +31,7 @@ function saveFired(s: Set<string>) {
     // Keep only today's keys so this cannot grow forever.
     const today = ymd(new Date());
     localStorage.setItem(
-      FIRED_KEY,
+      firedKey(),
       JSON.stringify([...s].filter((k) => k.includes(today))),
     );
   } catch {
@@ -74,7 +75,7 @@ export default function SystemServices() {
         fired.add(key);
         changed = true;
         notify(
-          "Calendar",
+          "Nanna",
           `Upcoming: ${e.title}`,
           diff <= 60_000
             ? "Starting now."

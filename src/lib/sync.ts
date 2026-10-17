@@ -1,4 +1,5 @@
 import { parseBackupJSON, serializeBackupJSON, type BackupJSON } from "./backup";
+import { getActiveAccountId, syncKeyFor } from "./accounts";
 
 /**
  * Optional cloud sync — EXPERIMENTAL (Phase 3).
@@ -37,7 +38,7 @@ export interface SyncConfig {
   syncId: string;
 }
 
-const SYNC_KEY = "uruk-os-sync-v1";
+const syncKey = () => syncKeyFor(getActiveAccountId());
 
 export const SYNC_TABLE_SQL = `create table if not exists urukos_snapshots (
   sync_id text primary key,
@@ -50,7 +51,7 @@ create policy "urukos anon access" on urukos_snapshots
 
 export function loadSyncConfig(): SyncConfig {
   try {
-    const raw = localStorage.getItem(SYNC_KEY);
+    const raw = localStorage.getItem(syncKey());
     if (raw) return { url: "", anonKey: "", syncId: "my-uruk-os", ...JSON.parse(raw) };
   } catch {
     /* ignore */
@@ -60,7 +61,7 @@ export function loadSyncConfig(): SyncConfig {
 
 export function saveSyncConfig(cfg: SyncConfig) {
   try {
-    localStorage.setItem(SYNC_KEY, JSON.stringify(cfg));
+    localStorage.setItem(syncKey(), JSON.stringify(cfg));
   } catch {
     /* ignore */
   }

@@ -22,11 +22,13 @@ export interface WeatherReading {
   cached: boolean;
 }
 
-const CACHE_KEY = "uruk-os-weather-v1";
+import { getActiveAccountId, weatherKeyFor } from "./accounts";
+
+const cacheKey = () => weatherKeyFor(getActiveAccountId());
 
 function loadCache(): WeatherReading | null {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
+    const raw = localStorage.getItem(cacheKey());
     if (raw) return JSON.parse(raw) as WeatherReading;
   } catch {
     /* ignore */
@@ -36,7 +38,7 @@ function loadCache(): WeatherReading | null {
 
 function saveCache(r: WeatherReading) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(r));
+    localStorage.setItem(cacheKey(), JSON.stringify(r));
   } catch {
     /* ignore */
   }

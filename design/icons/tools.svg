@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3A2A1A"/>
+      <stop offset="1" stop-color="#241708"/>
+    </linearGradient>
+    <linearGradient id="bronze" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C99A5F"/>
+      <stop offset="1" stop-color="#8F6234"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F6D67C"/>
+      <stop offset="1" stop-color="#D9A441"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="88" height="88" rx="20" fill="url(#ground)"/>
+  <rect x="4.75" y="4.75" width="86.5" height="86.5" rx="19.25" fill="none" stroke="#F6D67C" stroke-opacity="0.16" stroke-width="1.5"/>
+  <!-- sparks struck from the forge: three wedges flying -->
+  <g fill="#F6D67C">
+    <path d="M30 15 L37 19.5 L29 21 Z"/>
+    <path d="M47 11 L52 17 L44 18 Z" opacity="0.85"/>
+    <path d="M63 15 L66 22 L59 20 Z" opacity="0.7"/>
+  </g>
+  <!-- the bronze anvil -->
+  <path d="M18 40 L58 40 L76 45.5 L58 50 L51 50 L51 57 L58 64 L58 71 L32 71 L32 64 L39 57 L39 50 L18 50 Z" fill="url(#bronze)"/>
+  <path d="M18 40 L58 40 L76 45.5 L58 50 L18 50 Z" fill="url(#gold)" opacity="0.9"/>
+  <line x1="20" y1="42.5" x2="56" y2="42.5" stroke="#FFF3D6" stroke-width="1.8" opacity="0.6"/>
+  <!-- ground line of the workshop -->
+  <line x1="26" y1="79" x2="70" y2="79" stroke="#C99A5F" stroke-width="3.5" stroke-linecap="round" opacity="0.8"/>
+  <path d="M40 82.5 L48 85 L40 87.5 Z" fill="#C99A5F" opacity="0.6"/>
+</svg>

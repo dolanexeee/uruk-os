@@ -6,3 +6,4 @@ qa/screenshots/
 .DS_Store
 .vercel
 qa/backup-test.urukos
+tsconfig.tsbuildinfo

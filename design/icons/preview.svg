@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#12705F"/>
+      <stop offset="1" stop-color="#083F36"/>
+    </linearGradient>
+    <linearGradient id="cream" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F7ECD2"/>
+      <stop offset="1" stop-color="#EAD9AE"/>
+    </linearGradient>
+    <linearGradient id="lapis" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2E6BD8"/>
+      <stop offset="1" stop-color="#16386E"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="88" height="88" rx="20" fill="url(#ground)"/>
+  <rect x="4.75" y="4.75" width="86.5" height="86.5" rx="19.25" fill="none" stroke="#F6D67C" stroke-opacity="0.18" stroke-width="1.5"/>
+  <!-- the all-seeing eye of Shamash -->
+  <path d="M15 46 C29 26 67 26 81 46 C67 66 29 66 15 46 Z" fill="url(#cream)" stroke="#D9A441" stroke-width="3"/>
+  <circle cx="48" cy="46" r="12" fill="url(#lapis)" stroke="#D9A441" stroke-width="2.5"/>
+  <circle cx="48" cy="46" r="5" fill="#10182E"/>
+  <circle cx="52" cy="41.5" r="1.9" fill="#F7ECD2"/>
+  <!-- three wedge lashes -->
+  <g fill="#F6D67C">
+    <path d="M33 24 L38 24 L35.5 30 Z"/>
+    <path d="M46 21.5 L51 21.5 L48.5 27.5 Z"/>
+    <path d="M59 24 L64 24 L61.5 30 Z"/>
+  </g>
+  <!-- tablet edge the eye rests on: a gold rule with a wedge impressed at its heart -->
+  <line x1="32" y1="78" x2="64" y2="78" stroke="#D9A441" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M44 82.5 L52 82.5 L48 88 Z" fill="#D9A441" opacity="0.8"/>
+</svg>

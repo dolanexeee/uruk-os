@@ -7,8 +7,16 @@ import { WALLPAPERS } from "./wallpapers";
 import { ActiveWallpaper } from "./Wallpaper";
 import { FileIcon, FolderIcon, UrukMark } from "./icons";
 import { useSystem } from "@/store/system";
-import { useNotifications } from "@/store/notifications";
-import { hasPin, verifyPin } from "@/lib/security";
+import { hasPin, setPin, verifyPin } from "@/lib/security";
+import {
+  AVATAR_COLORS,
+  AVATAR_GLYPHS,
+  createAccount,
+  defaultGlyph,
+  type Account,
+} from "@/lib/accounts";
+import { bootSession, enterAccount, enterGuest } from "@/lib/session";
+import Avatar from "./Avatar";
 import Spotlight from "./Spotlight";
 import Launchpad from "./Launchpad";
 import ControlCenter from "./ControlCenter";
@@ -89,8 +97,15 @@ function BootScreen() {
 /* ------------------------------------------------------------------ */
 
 function LoginScreen() {
-  const login = useOS((s) => s.login);
+  const accounts = useOS((s) => s.accounts);
+  const accountsReady = useOS((s) => s.accountsReady);
+  const currentAccount = useOS((s) => s.currentAccount);
+  const sessionLocked = useOS((s) => s.sessionLocked);
   const hasSession = useOS((s) => s.windows.length > 0);
+  const loginPhase = useOS((s) => s.login);
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [pinSet, setPinSet] = useState(false);
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
@@ -103,25 +118,44 @@ function LoginScreen() {
     return () => clearInterval(t);
   }, []);
 
+  // When locked, only the session's own account is on offer.
+  const visibleAccounts = sessionLocked && currentAccount ? [currentAccount] : accounts;
+  const selected =
+    visibleAccounts.find((a) => a.id === (selectedId ?? currentAccount?.id)) ??
+    visibleAccounts[0] ??
+    null;
+
   useEffect(() => {
-    setPinSet(hasPin());
-  }, []);
+    setPinSet(selected ? hasPin(selected.id) : false);
+    setPin("");
+    setError("");
+  }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (pinSet) pinInputRef.current?.focus();
   }, [pinSet]);
 
+  const proceed = async () => {
+    if (!selected) return;
+    if (sessionLocked && currentAccount && selected.id === currentAccount.id) {
+      loginPhase(); // unlock: the session never ended
+      return;
+    }
+    await enterAccount(selected);
+  };
+
   const attempt = async () => {
+    if (!selected) return;
     if (!pinSet) {
-      login();
+      await proceed();
       return;
     }
     if (!pin) return;
-    const ok = await verifyPin(pin);
+    const ok = await verifyPin(pin, selected.id);
     if (ok) {
       setError("");
       setPin("");
-      login();
+      await proceed();
     } else {
       setError("Incorrect PIN — try again.");
       setPin("");
@@ -130,14 +164,16 @@ function LoginScreen() {
     }
   };
 
+  const showCreate = creating || (accountsReady && !sessionLocked && accounts.length === 0);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Enter") void attempt();
+      if (e.key === "Enter" && !showCreate) void attempt();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pin, pinSet]);
+  }, [pin, pinSet, selected?.id, showCreate, sessionLocked]);
 
   return (
     <div
@@ -145,14 +181,13 @@ function LoginScreen() {
       data-testid="login-screen"
       onClick={() => {
         if (pinSet) pinInputRef.current?.focus();
-        else login();
       }}
     >
       <div className="absolute inset-0 scale-110 blur-md brightness-[0.82]">
         <ActiveWallpaper />
       </div>
-      <div className="fade-in relative flex flex-col items-center">
-        <div className="mb-10 flex flex-col items-center text-white" data-testid="login-clock">
+      <div className="fade-in relative flex max-h-full flex-col items-center overflow-y-auto px-4 py-6">
+        <div className="mb-8 flex flex-col items-center text-white" data-testid="login-clock">
           <div className="text-[64px] font-thin leading-none tracking-tight drop-shadow-lg">
             {now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}
             <span className="ml-2 align-middle text-[22px] font-light text-white/85">
@@ -163,61 +198,295 @@ function LoginScreen() {
             {now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
           </div>
         </div>
-        <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-b from-sky-400 to-blue-600 text-[38px] font-bold text-white shadow-2xl ring-2 ring-white/40">
-          M
-        </div>
-        <div className="mt-4 text-[24px] font-semibold text-white drop-shadow">Mustafa</div>
 
-        {pinSet ? (
-          <div key={shakeKey} className={shakeKey ? "shake" : ""} onClick={(e) => e.stopPropagation()}>
-            <div className="mt-4 flex flex-col items-center">
-              <input
-                ref={pinInputRef}
-                data-testid="login-pin-input"
-                type="password"
-                inputMode="numeric"
-                autoComplete="off"
-                value={pin}
-                onChange={(e) => {
-                  setPin(e.target.value.replace(/[^\d]/g, "").slice(0, 12));
-                  setError("");
-                }}
-                placeholder="Enter PIN"
-                className="w-48 rounded-full border border-white/30 bg-white/15 px-4 py-1.5 text-center text-[14px] tracking-[0.3em] text-white placeholder:tracking-normal placeholder:text-white/60 backdrop-blur-md outline-none focus:border-white/60"
-              />
-              <button
-                data-testid="login-pin-submit"
-                className="mt-3 rounded-full bg-white/20 px-5 py-1.5 text-[13.5px] font-medium text-white backdrop-blur-md transition hover:bg-white/30"
-                onClick={() => void attempt()}
-              >
-                Unlock
-              </button>
-              {error ? (
-                <div data-testid="login-pin-error" className="mt-2 text-[12.5px] font-medium text-red-200">
-                  {error}
-                </div>
-              ) : (
-                <div className="mt-2 text-[12px] text-white/75">This machine is locked with a PIN</div>
-              )}
-            </div>
-          </div>
+        {showCreate ? (
+          <CreateAccountForm
+            firstRun={accounts.length === 0}
+            onCancel={accounts.length > 0 ? () => setCreating(false) : undefined}
+          />
         ) : (
           <>
-            <button
-              data-testid="login-button"
-              className="mt-3 rounded-full bg-white/20 px-5 py-1.5 text-[13.5px] font-medium text-white backdrop-blur-md transition hover:bg-white/30"
-              onClick={(e) => {
-                e.stopPropagation();
-                login();
-              }}
-            >
-              {hasSession ? "Click to unlock" : "Click to log in"}
-            </button>
-            <div className="mt-2 text-[12px] text-white/75">or press Enter</div>
+            {/* account picker */}
+            <div className="flex flex-wrap items-start justify-center gap-5">
+              {visibleAccounts.map((a) => (
+                <button
+                  key={a.id}
+                  data-testid={`login-account-${a.id}`}
+                  data-account-name={a.name}
+                  className={`flex w-24 flex-col items-center gap-2 rounded-2xl p-2 transition ${
+                    selected?.id === a.id ? "bg-white/15 ring-2 ring-white/60" : "hover:bg-white/10"
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedId(a.id);
+                  }}
+                  onDoubleClick={() => {
+                    setSelectedId(a.id);
+                    if (!hasPin(a.id)) void enterAccount(a);
+                  }}
+                >
+                  <Avatar account={a} size={64} />
+                  <span className="max-w-full truncate text-[14px] font-medium text-white drop-shadow">
+                    {a.name}
+                  </span>
+                  {a.guest && (
+                    <span className="-mt-1 rounded-full bg-white/20 px-2 py-px text-[10.5px] font-semibold uppercase tracking-wide text-white/90">
+                      Guest
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {selected && (
+              <div className="mt-5 flex flex-col items-center">
+                {pinSet ? (
+                  <div key={shakeKey} className={shakeKey ? "shake" : ""} onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-col items-center">
+                      <input
+                        ref={pinInputRef}
+                        data-testid="login-pin-input"
+                        type="password"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        value={pin}
+                        onChange={(e) => {
+                          setPin(e.target.value.replace(/[^\d]/g, "").slice(0, 12));
+                          setError("");
+                        }}
+                        placeholder={`PIN for ${selected.name}`}
+                        className="w-52 rounded-full border border-white/30 bg-white/15 px-4 py-1.5 text-center text-[14px] tracking-[0.3em] text-white placeholder:tracking-normal placeholder:text-white/60 backdrop-blur-md outline-none focus:border-white/60"
+                      />
+                      <button
+                        data-testid="login-pin-submit"
+                        className="mt-3 rounded-full bg-white/20 px-5 py-1.5 text-[13.5px] font-medium text-white backdrop-blur-md transition hover:bg-white/30"
+                        onClick={() => void attempt()}
+                      >
+                        Unlock
+                      </button>
+                      {error ? (
+                        <div data-testid="login-pin-error" className="mt-2 text-[12.5px] font-medium text-red-200">
+                          {error}
+                        </div>
+                      ) : (
+                        <div className="mt-2 text-[12px] text-white/75">
+                          {selected.name}&apos;s account is locked with a PIN
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      data-testid="login-button"
+                      className="rounded-full bg-white/20 px-5 py-1.5 text-[13.5px] font-medium text-white backdrop-blur-md transition hover:bg-white/30"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void attempt();
+                      }}
+                    >
+                      {sessionLocked || hasSession ? "Click to unlock" : `Log in as ${selected.name}`}
+                    </button>
+                    <div className="mt-2 text-[12px] text-white/75">or press Enter</div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {!sessionLocked && accountsReady && (
+              <div className="mt-7 flex items-center gap-2.5">
+                <button
+                  data-testid="login-create-toggle"
+                  className="rounded-full bg-white/15 px-4 py-1.5 text-[13px] font-medium text-white backdrop-blur-md transition hover:bg-white/25"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCreating(true);
+                  }}
+                >
+                  + Create Account
+                </button>
+                <button
+                  data-testid="login-guest"
+                  className="rounded-full bg-white/10 px-4 py-1.5 text-[13px] font-medium text-white/90 backdrop-blur-md transition hover:bg-white/20"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void enterGuest();
+                  }}
+                >
+                  Continue as Guest
+                </button>
+              </div>
+            )}
+            {!sessionLocked && (
+              <div className="mt-3 max-w-sm text-center text-[11.5px] leading-4 text-white/65">
+                Guest mode has its own separate space — its files stay apart
+                from every account. Accounts live on this device, in this
+                browser: local-first, no server, $0.
+              </div>
+            )}
           </>
         )}
       </div>
       <div className="absolute bottom-5 text-[12px] tracking-[0.3em] text-white/60">URUK&nbsp;OS</div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Create-account form (on the login screen)                           */
+/* ------------------------------------------------------------------ */
+
+function CreateAccountForm({
+  firstRun,
+  onCancel,
+}: {
+  firstRun: boolean;
+  onCancel?: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [colorIdx, setColorIdx] = useState(0);
+  const [glyphIdx, setGlyphIdx] = useState(-1); // -1 = first letter of the name
+  const [pin, setPinValue] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const glyph = glyphIdx >= 0 ? AVATAR_GLYPHS[glyphIdx] : defaultGlyph(name || "U");
+  const preview: Account = {
+    id: "preview",
+    name: name || "New User",
+    color: AVATAR_COLORS[colorIdx],
+    glyph,
+    createdAt: 0,
+  };
+
+  const submit = async () => {
+    const clean = name.trim();
+    if (!clean) {
+      setError("Give the account a name first.");
+      return;
+    }
+    if (pin && !/^\d{4,12}$/.test(pin)) {
+      setError("The optional PIN must be 4–12 digits.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const account = createAccount({
+        name: clean,
+        color: AVATAR_COLORS[colorIdx],
+        glyph,
+      });
+      if (pin) await setPin(pin, account.id);
+      await enterAccount(account);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const inputCls =
+    "w-64 rounded-full border border-white/30 bg-white/15 px-4 py-1.5 text-center text-[14px] text-white placeholder:text-white/60 backdrop-blur-md outline-none focus:border-white/60";
+
+  return (
+    <div
+      data-testid="create-account-form"
+      className="flex flex-col items-center"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Avatar account={preview} size={72} />
+      <div className="mb-1 mt-3 text-[19px] font-semibold text-white drop-shadow">
+        {firstRun ? "Welcome — create your account" : "Create an account"}
+      </div>
+      <div className="mb-4 max-w-sm text-center text-[12px] leading-4 text-white/75">
+        Your account, files, and settings live on this device only —
+        nothing is sent to a server, and it costs nothing.
+      </div>
+
+      <input
+        data-testid="account-name-input"
+        value={name}
+        onChange={(e) => {
+          setName(e.target.value);
+          setError("");
+        }}
+        onKeyDown={(e) => e.key === "Enter" && void submit()}
+        placeholder="Display name"
+        autoFocus
+        className={inputCls}
+      />
+
+      <div className="mt-4 flex items-center gap-2">
+        {AVATAR_COLORS.map((c, i) => (
+          <button
+            key={c}
+            data-testid={`account-color-${i}`}
+            title={c}
+            className={`h-7 w-7 rounded-full transition-transform hover:scale-110 ${
+              colorIdx === i ? "ring-2 ring-white ring-offset-2 ring-offset-transparent" : "ring-1 ring-white/40"
+            }`}
+            style={{ backgroundColor: c }}
+            onClick={() => setColorIdx(i)}
+          />
+        ))}
+      </div>
+
+      <div className="mt-3 flex max-w-xs flex-wrap items-center justify-center gap-1.5">
+        {AVATAR_GLYPHS.map((g, i) => (
+          <button
+            key={g}
+            data-testid={`account-glyph-${i}`}
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-[15px] text-white backdrop-blur-md transition ${
+              glyphIdx === i ? "bg-white/35 ring-2 ring-white/70" : "bg-white/12 hover:bg-white/25"
+            }`}
+            onClick={() => setGlyphIdx(i)}
+          >
+            {g}
+          </button>
+        ))}
+      </div>
+
+      <input
+        data-testid="account-pin-input"
+        type="password"
+        inputMode="numeric"
+        autoComplete="off"
+        value={pin}
+        onChange={(e) => {
+          setPinValue(e.target.value.replace(/[^\d]/g, "").slice(0, 12));
+          setError("");
+        }}
+        onKeyDown={(e) => e.key === "Enter" && void submit()}
+        placeholder="PIN (optional)"
+        className={`${inputCls} mt-4 tracking-[0.3em] placeholder:tracking-normal`}
+      />
+      <div className="mt-1.5 text-[11.5px] text-white/65">
+        Optional. Stored only as a salted SHA-256 hash on this device.
+      </div>
+
+      {error && (
+        <div data-testid="account-create-error" className="mt-2 text-[12.5px] font-medium text-red-200">
+          {error}
+        </div>
+      )}
+
+      <div className="mt-4 flex items-center gap-2.5">
+        <button
+          data-testid="account-create-submit"
+          disabled={busy}
+          className="rounded-full bg-white/25 px-5 py-1.5 text-[13.5px] font-semibold text-white backdrop-blur-md transition hover:bg-white/35 disabled:opacity-50"
+          onClick={() => void submit()}
+        >
+          Create &amp; Log In
+        </button>
+        {onCancel && (
+          <button
+            data-testid="account-create-cancel"
+            className="rounded-full bg-white/10 px-4 py-1.5 text-[13px] font-medium text-white/90 backdrop-blur-md transition hover:bg-white/20"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -333,17 +602,12 @@ export default function OSRoot() {
   const accent = useOS((s) => s.accent);
   const windows = useOS((s) => s.windows);
   const brightness = useSystem((s) => s.brightness);
-  const loadFS = useFS((s) => s.load);
-  const hydrateSettings = useOS((s) => s.hydrateSettings);
-  const hydrateSystem = useSystem((s) => s.hydrateSystem);
-  const hydrateNotifications = useNotifications((s) => s.hydrateNotifications);
 
+  // Boot the account session: migration + bind the preselected
+  // account's settings, prefs, notifications, and file system.
   useEffect(() => {
-    hydrateSettings();
-    hydrateSystem();
-    hydrateNotifications();
-    void loadFS();
-  }, [loadFS, hydrateSettings, hydrateSystem, hydrateNotifications]);
+    void bootSession();
+  }, []);
 
   return (
     <div

@@ -2,11 +2,11 @@
 
 An honest, evidence-based inventory of the whole system, scored the same way
 as Uruk Cut's PARITY.md. **Done** means it works and is covered by the
-automated suite (`qa/run-tests.mjs`, 100/100 checks) or was verified by hand
+automated suite (`qa/run-tests.mjs`, 138/138 checks) or was verified by hand
 against the running system. **Partial** means it exists but with a stated
 gap. **Missing** means not built. Nothing is claimed without evidence.
 
-_Last updated: v0.3.0 (Phase 3)._
+_Last updated: v0.5.0 (Phase 4A: accounts + real-browser proxy + Dock auto-hide; Phase 4B: URUK identity)._
 
 ## Shell & system
 
@@ -38,24 +38,27 @@ _Last updated: v0.3.0 (Phase 3)._
 | Idle screensaver (1 / 5 / 15 min / never, plus an honestly labeled "10 sec (test)") | ✅ Done | Phase 3 suite with the 10-second test interval |
 | Backup / Restore (`.urukos` ZIP: manifest + raw blob entries, format `urukos-backup: 1`, Replace or Merge) | ✅ Done | Phase 3 suite: export → verify ZIP magic + manifest → delete marker → import (Replace) → marker restored with content |
 | Supabase sync (bring-your-own project, push/pull snapshot, connection test) | ⚠️ Partial | **Experimental.** Implemented against the Supabase PostgREST spec with real error surfacing; the payload is the same serialized backup the suite round-trips. **Not verified against a live Supabase project** — no project of the user's was available to test with. The `.urukos` file is the guaranteed path. |
-| Multiple user accounts | ❌ Missing | Single local user by design |
+| Multiple local accounts (per-account FS database, settings, PIN; account picker + create flow; guest space) | ✅ Done | Phase 4A suite: create account B → marker file + wallpaper → switch to A → marker invisible, A's wallpaper differs → back into B (PIN-gated) → all intact; guest sees neither account's files. Honest scope: accounts live on this device/browser (local-first, $0); cross-device stays the experimental BYO-Supabase path |
+| Migration of pre-account data | ✅ Done | The pre-4A file system + settings become the first account ("Mustafa", renameable in Settings → Account); storage keys and the original IndexedDB database are adopted in place — nothing wiped |
+| Dock auto-hide (maximized window owns the screen; bottom-edge hover reveals; Settings toggle, on by default) | ✅ Done | Phase 4A suite: maximize → Dock off-screen → mouse to bottom edge → Dock floats back → mouse away → hides → unmaximize → Dock returns |
+| URUK identity (original Mesopotamian icon set + app names from design/NAMES.md) | ✅ Done | Icons: `design/icons/*.svg` served from `public/icons`, used in Dock, Plaza, desktop, Finder, Spotlight. Names: Uruk Files, Uruk Shell, Scribe, Ukkin, Shamash Gallery, Shamash Eye, Tablet, Abacus, Nanna, Lyre, Ishtar Gate, Plaza, Shard (Uruk Code kept). Internal app ids unchanged |
 | Finder drag-between-folders | ⚠️ Partial | Move exists via right-click **Move to…**; direct drag between folders is not implemented |
 
 ## Apps
 
 | App | Status | Notes |
 | --- | --- | --- |
-| Finder | ✅ Done | Sidebar, history, grid/list, search, context menus, Get Info, storage readout |
-| Terminal (`uruksh`) | ✅ Done | Real interpreter over the FS; `urukfetch` reports live system data |
-| Editor | ✅ Done | Ctrl+S writes back into the FS |
-| Settings | ✅ Done | Appearance, Wallpaper, System (weather city, idle timeout), Security (PIN), Backup (+ experimental Sync), About with live stats |
-| Photos | ✅ Done | Gallery over stored blobs, viewer, zoom, Set as Wallpaper |
-| Preview | ✅ Done | Image zoom/rotate (+ save rotated copy), PDF viewing |
-| Notes | ✅ Done | Notes are real `.txt` files; searchable contents via Spotlight |
-| Calculator | ✅ Done | Hand-written precedence parser (no `eval()`), keyboard support, history tape |
-| Calendar | ✅ Done | Events are a plain JSON file in the FS; reminders feed the notification engine |
-| Music | ✅ Done | Real playback, shuffle/repeat, volume shared with Control Center, now-playing published to Notification Center |
-| URUK Browser | ✅ Done | Tabs + history; sites that refuse embedding get an honest explanation, never a fake page; respects the Wi-Fi switch |
+| Uruk Files | ✅ Done | Sidebar, history, grid/list, search, context menus, Get Info, storage readout |
+| Uruk Shell (`uruksh`) | ✅ Done | Real interpreter over the FS; `urukfetch` reports live system data |
+| Scribe | ✅ Done | Ctrl+S writes back into the FS |
+| Ukkin (Settings) | ✅ Done | Appearance, Wallpaper, System (weather city, idle timeout), Security (PIN), Backup (+ experimental Sync), About with live stats |
+| Shamash Gallery | ✅ Done | Gallery over stored blobs, viewer, zoom, Set as Wallpaper |
+| Shamash Eye | ✅ Done | Image zoom/rotate (+ save rotated copy), PDF viewing |
+| Tablet (Notes) | ✅ Done | Notes are real `.txt` files; searchable contents via Spotlight |
+| Abacus | ✅ Done | Hand-written precedence parser (no `eval()`), keyboard support, history tape |
+| Nanna (Calendar) | ✅ Done | Events are a plain JSON file in the FS; reminders feed the notification engine |
+| Lyre (Music) | ✅ Done | Real playback, shuffle/repeat, volume shared with Control Center, now-playing published to Notification Center |
+| Ishtar Gate (browser) | ✅ Done | Tabs + history; pages load through the OS's same-origin proxy (`/api/proxy`) with URL rewriting, so framing-protected sites render in-app (suite: example.org + the Wikipedia "Uruk" article render inside it; the address bar tracks in-frame navigation). YouTube watch URLs become the nocookie embed. Proxy failures show an honest in-app state with "Open in real tab"; respects the Wi-Fi switch. Limits: no cookie forwarding (logins don't persist); JS-heavy web apps may not fully work through a rewriting proxy |
 | Uruk Code | ✅ Done | CodeMirror editor, multi-tab, real JavaScript execution in a sandboxed pane, HTML preview |
 
 ## Editions
@@ -67,6 +70,6 @@ _Last updated: v0.3.0 (Phase 3)._
 
 ## Score
 
-- Shell & system: 24 Done · 3 Partial · 1 Missing
+- Shell & system: 28 Done · 3 Partial · 0 Missing
 - Apps: 12 Done · 0 Partial · 0 Missing
 - Editions: 1 Done · 1 Missing (ISO is the next phase, by plan)

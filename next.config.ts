@@ -2,8 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: false,
-  // Fully client-side desktop OS: one static export (out/) is the product.
-  output: "export",
+  // Phase 4A: the app is a server build — the /api/proxy route (the
+  // Browser app's same-origin page proxy) must run in production.
+  // The single page itself still prerenders statically.
 };
 
 export default nextConfig;

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { useSystem } from "./system";
+import { getActiveAccountId, notificationsKeyFor } from "@/lib/accounts";
 
 /**
  * Notification engine — Phase 3.
@@ -18,12 +19,12 @@ export interface OSNotification {
   ts: number;
 }
 
-const LIST_KEY = "uruk-os-notifications-v1";
+const listKey = () => notificationsKeyFor(getActiveAccountId());
 const MAX_ITEMS = 50;
 
 function loadList(): OSNotification[] {
   try {
-    const raw = localStorage.getItem(LIST_KEY);
+    const raw = localStorage.getItem(listKey());
     if (raw) {
       const parsed = JSON.parse(raw) as OSNotification[];
       if (Array.isArray(parsed)) return parsed.slice(0, MAX_ITEMS);
@@ -36,7 +37,7 @@ function loadList(): OSNotification[] {
 
 function saveList(list: OSNotification[]) {
   try {
-    localStorage.setItem(LIST_KEY, JSON.stringify(list.slice(0, MAX_ITEMS)));
+    localStorage.setItem(listKey(), JSON.stringify(list.slice(0, MAX_ITEMS)));
   } catch {
     /* ignore */
   }
@@ -52,6 +53,8 @@ interface NotificationStore {
   banners: OSNotification[];
   hydrated: boolean;
   hydrateNotifications: () => void;
+  /** Re-read the list for a (newly) active account — account switch. */
+  reloadForAccount: () => void;
   notify: (n: { source: string; title: string; body: string }) => void;
   dismissBanner: (id: string) => void;
   remove: (id: string) => void;
@@ -66,6 +69,10 @@ export const useNotifications = create<NotificationStore>((set, get) => ({
   hydrateNotifications: () => {
     if (get().hydrated) return;
     set({ items: loadList(), hydrated: true });
+  },
+
+  reloadForAccount: () => {
+    set({ items: loadList(), banners: [], hydrated: true });
   },
 
   notify: ({ source, title, body }) => {

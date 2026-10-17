@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#12705F"/>
+      <stop offset="1" stop-color="#083F36"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F6D67C"/>
+      <stop offset="0.55" stop-color="#D9A441"/>
+      <stop offset="1" stop-color="#B57E26"/>
+    </linearGradient>
+    <linearGradient id="lapis" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2E6BD8"/>
+      <stop offset="1" stop-color="#16386E"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="88" height="88" rx="20" fill="url(#ground)"/>
+  <rect x="4.75" y="4.75" width="86.5" height="86.5" rx="19.25" fill="none" stroke="#F6D67C" stroke-opacity="0.18" stroke-width="1.5"/>
+  <!-- gear whose teeth are cuneiform wedges -->
+  <g fill="url(#gold)">
+    <rect x="43" y="15" width="10" height="15" rx="4"/>
+    <rect x="43" y="15" width="10" height="15" rx="4" transform="rotate(45 48 48)"/>
+    <rect x="43" y="15" width="10" height="15" rx="4" transform="rotate(90 48 48)"/>
+    <rect x="43" y="15" width="10" height="15" rx="4" transform="rotate(135 48 48)"/>
+    <rect x="43" y="15" width="10" height="15" rx="4" transform="rotate(180 48 48)"/>
+    <rect x="43" y="15" width="10" height="15" rx="4" transform="rotate(225 48 48)"/>
+    <rect x="43" y="15" width="10" height="15" rx="4" transform="rotate(270 48 48)"/>
+    <rect x="43" y="15" width="10" height="15" rx="4" transform="rotate(315 48 48)"/>
+  </g>
+  <circle cx="48" cy="48" r="21" fill="url(#gold)"/>
+  <circle cx="48" cy="48" r="13.5" fill="url(#lapis)"/>
+  <!-- a cuneiform sign at the hub: one horizontal wedge over two vertical -->
+  <g fill="#F6D67C">
+    <path d="M40.5 40.5 L55.5 43.5 L40.5 46.5 Z"/>
+    <path d="M42.5 49.5 L45.5 57.5 L39.5 57.5 Z"/>
+    <path d="M52.5 49.5 L55.5 57.5 L49.5 57.5 Z"/>
+  </g>
+</svg>

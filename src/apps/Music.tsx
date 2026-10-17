@@ -114,7 +114,7 @@ export default function Music({ win }: { win: WinState }) {
   }, [volume, srcUrl]);
 
   useEffect(() => {
-    os.setWindowTitle(win.id, current ? `Music — ${current.name}` : "Music");
+    os.setWindowTitle(win.id, current ? `Lyre — ${current.name}` : "Lyre");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.name, win.id]);
 
@@ -157,7 +157,7 @@ export default function Music({ win }: { win: WinState }) {
   }, [registerPlaybackToggle, setNowPlaying]);
   useEffect(() => {
     if (current) {
-      setNowPlaying({ title: current.name, subtitle: "Music", playing });
+      setNowPlaying({ title: current.name, subtitle: "Lyre", playing });
     } else {
       setNowPlaying(null);
     }

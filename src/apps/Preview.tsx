@@ -41,7 +41,7 @@ export default function Preview({ win }: { win: WinState }) {
   }, [node]);
 
   useEffect(() => {
-    os.setWindowTitle(win.id, node ? node.name : "Preview");
+    os.setWindowTitle(win.id, node ? node.name : "Shamash Eye");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node?.name, win.id]);
 
@@ -52,8 +52,8 @@ export default function Preview({ win }: { win: WinState }) {
           Nothing to preview
         </div>
         <p className="max-w-xs text-[13px] leading-5 text-neutral-400">
-          Preview opens images and PDFs. Double-click one in Finder, or use
-          “Open in Preview” from Photos.
+          Shamash Eye opens images and PDFs. Double-click one in Uruk
+          Files, or use “Open in Shamash Eye” from Shamash Gallery.
         </p>
       </div>
     );
@@ -195,7 +195,7 @@ export default function Preview({ win }: { win: WinState }) {
         ) : (
           <div className="max-w-sm text-center text-[13px] leading-5 text-neutral-500 dark:text-neutral-400">
             Preview does not render “{node.mime}”. The file itself is safe in
-            your file system — Get Info in Finder shows its details.
+            your file system — Get Info in Uruk Files shows its details.
           </div>
         )}
       </div>

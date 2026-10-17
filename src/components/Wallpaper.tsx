@@ -32,10 +32,15 @@ export function ActiveWallpaper() {
         src={url}
         alt=""
         data-testid="custom-wallpaper-img"
+        data-wallpaper-id="custom"
         className="h-full w-full object-cover"
         draggable={false}
       />
     );
   }
-  return <WallpaperById id={wallpaper} />;
+  return (
+    <div data-testid="active-wallpaper" data-wallpaper-id={wallpaper} className="h-full w-full">
+      <WallpaperById id={wallpaper} />
+    </div>
+  );
 }

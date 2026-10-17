@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { APP_NAMES, useOS, type AppId } from "@/store/os";
 import { useSystem } from "@/store/system";
 import { TRASH_ID, childrenOf, useFS } from "@/lib/fs";
@@ -32,6 +32,29 @@ export default function Dock() {
 
   const trashCount = childrenOf(nodes, TRASH_ID).length;
   const runningApps = new Set(os.windows.map((w) => w.app));
+
+  /* ---- Auto-hide (Phase 4A): while any window is maximized and the
+   * setting is on, the Dock slides off the bottom of the screen so
+   * the maximized window owns the full display. A pointer trip to
+   * the bottom edge strip (hot zone + Dock area) floats it back. */
+  const anyMaximized = os.windows.some((w) => w.maximized && !w.minimized);
+  const autoHideActive = os.dockAutoHide && anyMaximized;
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    if (!autoHideActive) {
+      setRevealed(false);
+      return;
+    }
+    const onMove = (e: MouseEvent) => {
+      // ~96px strip: the 6px hot zone, the revealed Dock, and slack.
+      setRevealed(e.clientY >= window.innerHeight - 96);
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, [autoHideActive]);
+
+  const dockHidden = autoHideActive && !revealed;
 
   /** mac-style magnification, applied imperatively for smoothness. */
   const applyMagnification = (clientX: number | null) => {
@@ -114,15 +137,28 @@ export default function Dock() {
 
   return (
     <>
+      {autoHideActive && (
+        <div
+          data-testid="dock-hotzone"
+          className="fixed inset-x-0 bottom-0 z-[8999] h-[6px]"
+          onMouseEnter={() => setRevealed(true)}
+        />
+      )}
       <div
         className="pointer-events-none fixed inset-x-0 bottom-2 z-[9000] flex justify-center"
         onContextMenu={(e) => e.preventDefault()}
       >
         <div
           data-testid="dock"
-          className="pointer-events-auto flex items-end gap-1.5 rounded-[22px] px-2.5 pb-1.5 pt-2
+          data-hidden={dockHidden ? "true" : "false"}
+          className={`flex items-end gap-1.5 rounded-[22px] px-2.5 pb-1.5 pt-2
             bg-white/30 shadow-[0_16px_44px_rgba(0,0,0,0.4)] ring-1 ring-white/30 backdrop-blur-2xl
-            dark:bg-neutral-800/35 dark:ring-white/15"
+            dark:bg-neutral-800/35 dark:ring-white/15
+            transition-transform duration-200 ease-out ${
+              dockHidden
+                ? "pointer-events-none translate-y-[calc(100%+16px)]"
+                : "pointer-events-auto translate-y-0"
+            }`}
           onMouseMove={(e) => applyMagnification(e.clientX)}
           onMouseLeave={() => applyMagnification(null)}
         >
@@ -139,13 +175,13 @@ export default function Dock() {
 
           {iconButton(
             "launchpad",
-            "Launchpad",
+            "Plaza",
             false,
             () => useSystem.getState().togglePanel("launchpad"),
             (e) =>
               open(e, [
                 {
-                  label: "Open Launchpad",
+                  label: "Open Plaza",
                   action: () => useSystem.getState().setPanel("launchpad"),
                 },
               ]),
@@ -156,18 +192,18 @@ export default function Dock() {
 
           {iconButton(
             "trash",
-            trashCount ? `Trash (${trashCount})` : "Trash",
+            trashCount ? `Shard (${trashCount})` : "Shard",
             false,
-            () => os.openApp("finder", { folderId: TRASH_ID }, "Trash"),
+            () => os.openApp("finder", { folderId: TRASH_ID }, "Shard"),
             (e) =>
               open(e, [
                 {
                   label: "Open",
-                  action: () => os.openApp("finder", { folderId: TRASH_ID }, "Trash"),
+                  action: () => os.openApp("finder", { folderId: TRASH_ID }, "Shard"),
                 },
                 { separator: true, label: "" },
                 {
-                  label: "Empty Trash",
+                  label: "Empty Shard",
                   disabled: trashCount === 0,
                   danger: true,
                   action: () => void emptyTrash(),

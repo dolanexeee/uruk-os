@@ -57,7 +57,7 @@ export default function Calendar({ win }: { win: WinState }) {
   const [fNotes, setFNotes] = useState("");
 
   useEffect(() => {
-    os.setWindowTitle(win.id, "Calendar");
+    os.setWindowTitle(win.id, "Nanna");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [win.id]);
 

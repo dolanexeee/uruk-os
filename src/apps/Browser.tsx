@@ -4,13 +4,23 @@ import { useSystem } from "@/store/system";
 import { WifiOffGlyph } from "@/components/glyphs";
 
 /**
- * URUK Browser — a real (if small) web browser: tabs, history, reload,
+ * Ishtar Gate (the URUK Browser) — a real (if small) web browser: tabs,
  * and an address bar that takes URLs or search terms.
  *
- * Honest limitation, surfaced in the UI rather than hidden: many sites
- * send X-Frame-Options / frame-ancestors headers and refuse to render
- * inside any iframe. When that happens we show a notice and offer the
- * always-visible “Open in real tab” button. We never fake a loaded page.
+ * Phase 4A: pages load through the OS's own same-origin proxy
+ * (/api/proxy), which fetches them server-side and rewrites their
+ * URLs — so sites that refuse to be iframed directly now render
+ * inside the OS. YouTube watch pages become the official embed
+ * player. Same-origin pages (the OS's own test fixtures) load
+ * directly.
+ *
+ * Honest limitation, surfaced in the UI rather than hidden: a
+ * rewriting proxy cannot carry everything — logins do not persist
+ * (no cookies are forwarded), and JavaScript-heavy web apps that
+ * mint their own absolute URLs or need websockets/service workers
+ * may not fully work. When the proxy cannot fetch a page we say so
+ * and offer the always-visible “Open in real tab” button. We never
+ * fake a loaded page.
  */
 
 const START_URL = "uruk://start";
@@ -18,10 +28,47 @@ const SEARCH_URL = (q: string) => `https://html.duckduckgo.com/html/?q=${encodeU
 
 interface Tab {
   id: number;
+  /** The real URL shown in the address bar (never the proxy URL). */
   url: string;
+  /** The iframe src actually loaded (proxy URL, embed, or direct). */
+  src: string;
   title: string;
   navKey: number;
   blocked: boolean;
+  error?: string;
+}
+
+/** YouTube watch/shorts/share URLs → the youtube-nocookie embed. */
+function youtubeEmbed(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^(www\.|m\.)/, "");
+    let id: string | null = null;
+    if (host === "youtube.com" && u.pathname === "/watch") id = u.searchParams.get("v");
+    else if (host === "youtu.be") id = u.pathname.replace("/", "");
+    else if (host === "youtube.com" && u.pathname.startsWith("/shorts/"))
+      id = u.pathname.split("/")[2] ?? null;
+    if (id && /^[\w-]{6,}$/.test(id))
+      return `https://www.youtube-nocookie.com/embed/${id}`;
+  } catch {
+    /* not a URL we recognize */
+  }
+  return null;
+}
+
+/** What the iframe should actually load for a real URL. */
+function frameSrcFor(url: string): string {
+  if (url === START_URL) return url;
+  const embed = youtubeEmbed(url);
+  if (embed) return embed;
+  if (typeof window !== "undefined") {
+    try {
+      if (new URL(url).origin === window.location.origin) return url;
+    } catch {
+      /* fall through to the proxy */
+    }
+  }
+  return `/api/proxy?url=${encodeURIComponent(url)}`;
 }
 
 let tabCounter = 0;
@@ -29,6 +76,7 @@ function newTab(url: string = START_URL): Tab {
   return {
     id: ++tabCounter,
     url,
+    src: frameSrcFor(url),
     title: url === START_URL ? "Start Page" : "New Tab",
     navKey: 0,
     blocked: false,
@@ -68,13 +116,15 @@ export default function BrowserApp({ win }: { win: WinState }) {
   const focused = os.focusedId === win.id;
   const [tabs, setTabs] = useState<Tab[]>(() => [newTab()]);
   const [activeId, setActiveId] = useState<number>(() => tabCounter);
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
   const [address, setAddress] = useState("");
   const iframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
 
   const active = tabs.find((t) => t.id === activeId) ?? tabs[0];
 
   useEffect(() => {
-    os.setWindowTitle(win.id, active ? `URUK Browser — ${active.title}` : "URUK Browser");
+    os.setWindowTitle(win.id, active ? `Ishtar Gate — ${active.title}` : "Ishtar Gate");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active?.title, win.id]);
 
@@ -91,8 +141,10 @@ export default function BrowserApp({ win }: { win: WinState }) {
     const url = normalizeInput(raw);
     patchTab(active.id, {
       url,
+      src: frameSrcFor(url),
       title: titleFor(url),
       blocked: false,
+      error: undefined,
       navKey: active.navKey + 1,
     });
     setAddress(url === START_URL ? "" : url);
@@ -130,16 +182,45 @@ export default function BrowserApp({ win }: { win: WinState }) {
     }
   };
 
-  /** After a frame loads, best-effort check whether the site refused framing. */
+  /**
+   * After a frame loads, sync the tab with where the frame actually
+   * is: proxied pages are same-origin with the OS, so we can read the
+   * frame's location, recover the real URL from the proxy parameter,
+   * take the page's own <title>, and spot the proxy's error marker.
+   * Cross-origin frames (the YouTube embed) refuse inspection — for
+   * those the navigate-time title stands.
+   */
   const onFrameLoad = (tab: Tab) => {
     const frame = iframeRefs.current.get(tab.id);
     if (!frame) return;
-    // Real title when same-origin; hostname otherwise (set at navigate time).
     try {
+      const w = frame.contentWindow;
       const doc = frame.contentDocument;
-      if (doc && doc.title) patchTab(tab.id, { title: doc.title });
+      if (!w || !doc) return;
+      const loc = w.location;
+      let realUrl = tab.url;
+      if (loc.pathname === "/api/proxy") {
+        const p = new URLSearchParams(loc.search).get("url");
+        if (p) realUrl = p;
+      } else if (loc.href && loc.href !== "about:blank") {
+        realUrl = loc.href;
+      }
+      const errEl = doc.querySelector("[data-uruk-proxy-error]");
+      const error = errEl
+        ? errEl.getAttribute("data-uruk-proxy-error") ||
+          "The page could not be loaded through the proxy."
+        : undefined;
+      patchTab(tab.id, {
+        ...(realUrl !== tab.url ? { url: realUrl } : {}),
+        ...(doc.title ? { title: doc.title } : {}),
+        error,
+        blocked: false,
+      });
+      if (tab.id === activeIdRef.current && realUrl !== tab.url) {
+        setAddress(realUrl === START_URL ? "" : realUrl);
+      }
     } catch {
-      /* cross-origin: keep hostname title */
+      /* cross-origin: nothing to sync */
     }
     window.setTimeout(() => {
       try {
@@ -221,14 +302,19 @@ export default function BrowserApp({ win }: { win: WinState }) {
         <button
           data-testid="browser-reload"
           className="rounded-md px-2 py-1 text-[14px] hover:bg-black/5 dark:hover:bg-white/10"
-          onClick={() => active && patchTab(active.id, { navKey: active.navKey + 1, blocked: false })}
+          onClick={() =>
+            active && patchTab(active.id, { navKey: active.navKey + 1, blocked: false, error: undefined })
+          }
         >
           ⟳
         </button>
         <button
           data-testid="browser-home"
           className="rounded-md px-2 py-1 text-[14px] hover:bg-black/5 dark:hover:bg-white/10"
-          onClick={() => active && patchTab(active.id, { url: START_URL, title: "Start Page", blocked: false })}
+          onClick={() =>
+            active &&
+            patchTab(active.id, { url: START_URL, src: START_URL, title: "Start Page", blocked: false, error: undefined })
+          }
         >
           ⌂
         </button>
@@ -274,6 +360,25 @@ export default function BrowserApp({ win }: { win: WinState }) {
         </div>
       )}
 
+      {/* proxy error state */}
+      {active && active.error && active.url !== START_URL && wifiOn && (
+        <div
+          data-testid="browser-proxy-error"
+          className="flex items-center gap-2 border-b border-red-300/60 bg-red-50 px-3 py-1.5 text-[12.5px] text-red-900 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
+        >
+          <span className="min-w-0 flex-1">
+            <b>Could not load this page through the URUK proxy.</b>{" "}
+            <span className="opacity-80">{active.error}</span>
+          </span>
+          <button
+            className="shrink-0 rounded bg-red-600 px-2 py-0.5 font-medium text-white"
+            onClick={() => window.open(active.url, "_blank", "noopener")}
+          >
+            Open it in a real tab
+          </button>
+        </div>
+      )}
+
       {/* content */}
       <div className="relative min-h-0 flex-1 bg-white">
         {!wifiOn && (
@@ -304,7 +409,7 @@ export default function BrowserApp({ win }: { win: WinState }) {
                 if (el) iframeRefs.current.set(t.id, el);
                 else iframeRefs.current.delete(t.id);
               }}
-              src={t.url}
+              src={t.src}
               title={t.title}
               data-testid={t.id === activeId ? "browser-frame" : undefined}
               className="absolute inset-0 h-full w-full border-0 bg-white"
@@ -323,13 +428,15 @@ function StartPage({ onNavigate }: { onNavigate: (url: string) => void }) {
     <div className="uruk-scroll absolute inset-0 overflow-y-auto bg-neutral-50 dark:bg-neutral-900" data-testid="browser-start">
       <div className="mx-auto max-w-xl px-6 py-10">
         <div className="mb-1 text-center text-[26px] font-bold tracking-tight text-neutral-800 dark:text-neutral-100">
-          URUK Browser
+          Ishtar Gate
         </div>
         <p className="mb-8 text-center text-[13px] leading-5 text-neutral-500 dark:text-neutral-400">
           A small, honest browser. Type an address or a search above.
-          Some websites refuse to appear inside another app (framing
-          protection) — when that happens we will tell you and offer the
-          real tab instead of pretending the page loaded.
+          Pages load through the URUK proxy, so sites that refuse to be
+          framed can still appear here. Some things still cannot work
+          through any proxy — logins do not persist, and heavy web apps
+          may misbehave — and when a page cannot load we will tell you
+          and offer the real tab instead of pretending.
         </p>
         <div className="grid grid-cols-2 gap-3">
           {QUICK_LINKS.map((l) => (
@@ -344,8 +451,8 @@ function StartPage({ onNavigate }: { onNavigate: (url: string) => void }) {
           ))}
         </div>
         <p className="mt-8 text-center text-[12px] text-neutral-400 dark:text-neutral-500">
-          Pages load directly from their own servers — URUK OS never sees
-          or proxies your browsing.
+          Pages are fetched by the URUK OS server and shown here — the
+          proxy forwards no cookies and keeps no browsing history.
         </p>
       </div>
     </div>

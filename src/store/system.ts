@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { getActiveAccountId, systemKeyFor } from "@/lib/accounts";
 
 /**
  * System store — Phase 3.
@@ -33,7 +34,7 @@ interface SystemPrefs {
   idleTimeoutSec: number;
 }
 
-const PREFS_KEY = "uruk-os-system-v1";
+const prefsKey = () => systemKeyFor(getActiveAccountId());
 
 const DEFAULT_PREFS: SystemPrefs = {
   brightness: 1,
@@ -47,7 +48,7 @@ const DEFAULT_PREFS: SystemPrefs = {
 
 function loadPrefs(): SystemPrefs {
   try {
-    const raw = localStorage.getItem(PREFS_KEY);
+    const raw = localStorage.getItem(prefsKey());
     if (raw) return { ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<SystemPrefs>) };
   } catch {
     /* ignore */
@@ -85,7 +86,7 @@ export const useSystem = create<SystemStore>((set, get) => {
   const persist = (patch: Partial<SystemPrefs>) => {
     const next = { ...pickPrefs(get()), ...patch };
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify(next));
+      localStorage.setItem(prefsKey(), JSON.stringify(next));
     } catch {
       /* ignore */
     }
@@ -121,7 +122,7 @@ export const useSystem = create<SystemStore>((set, get) => {
     replacePrefs: (prefs) => {
       const next = { ...DEFAULT_PREFS, ...pickPrefs(get()), ...prefs };
       try {
-        localStorage.setItem(PREFS_KEY, JSON.stringify(next));
+        localStorage.setItem(prefsKey(), JSON.stringify(next));
       } catch {
         /* ignore */
       }

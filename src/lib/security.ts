@@ -1,13 +1,14 @@
 /**
- * Lock-screen PIN — Phase 3.
+ * Per-account lock-screen PIN — Phase 3, made per-account in Phase 4A.
  *
  * Only a salted SHA-256 hash is ever stored (in localStorage, on this
- * device only). The plaintext PIN exists in memory long enough to be
- * hashed and is then discarded. There is no server; this is a local
- * lock, not an account credential.
+ * device only, under a key scoped to the owning account). The
+ * plaintext PIN exists in memory long enough to be hashed and is
+ * then discarded. There is no server; this is a local lock, not a
+ * network credential.
  */
 
-const PIN_KEY = "uruk-os-pin-v1";
+import { getActiveAccountId, pinKeyFor } from "./accounts";
 
 interface PinRecord {
   salt: string; // base64
@@ -33,9 +34,13 @@ async function hashPin(pin: string, salt: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(digest);
 }
 
-function loadRecord(): PinRecord | null {
+function keyFor(accountId?: string): string {
+  return pinKeyFor(accountId ?? getActiveAccountId());
+}
+
+function loadRecord(accountId?: string): PinRecord | null {
   try {
-    const raw = localStorage.getItem(PIN_KEY);
+    const raw = localStorage.getItem(keyFor(accountId));
     if (!raw) return null;
     const rec = JSON.parse(raw) as PinRecord;
     return rec.salt && rec.hash ? rec : null;
@@ -44,19 +49,19 @@ function loadRecord(): PinRecord | null {
   }
 }
 
-export function hasPin(): boolean {
-  return loadRecord() !== null;
+export function hasPin(accountId?: string): boolean {
+  return loadRecord(accountId) !== null;
 }
 
-export async function setPin(pin: string): Promise<void> {
+export async function setPin(pin: string, accountId?: string): Promise<void> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const hash = await hashPin(pin, salt);
   const rec: PinRecord = { salt: b64encode(salt), hash: b64encode(hash) };
-  localStorage.setItem(PIN_KEY, JSON.stringify(rec));
+  localStorage.setItem(keyFor(accountId), JSON.stringify(rec));
 }
 
-export async function verifyPin(pin: string): Promise<boolean> {
-  const rec = loadRecord();
+export async function verifyPin(pin: string, accountId?: string): Promise<boolean> {
+  const rec = loadRecord(accountId);
   if (!rec) return false;
   const candidate = await hashPin(pin, b64decode(rec.salt));
   const expected = b64decode(rec.hash);
@@ -67,6 +72,6 @@ export async function verifyPin(pin: string): Promise<boolean> {
   return diff === 0;
 }
 
-export function removePin(): void {
-  localStorage.removeItem(PIN_KEY);
+export function removePin(accountId?: string): void {
+  localStorage.removeItem(keyFor(accountId));
 }

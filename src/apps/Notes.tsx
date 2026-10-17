@@ -51,7 +51,7 @@ export default function Notes({ win }: { win: WinState }) {
   }, []);
 
   useEffect(() => {
-    os.setWindowTitle(win.id, "Notes");
+    os.setWindowTitle(win.id, "Tablet");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [win.id]);
 

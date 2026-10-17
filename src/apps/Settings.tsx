@@ -4,9 +4,11 @@ import { formatBytes, totalSize, useFS } from "@/lib/fs";
 import { UrukMark } from "@/components/icons";
 import { WALLPAPERS } from "@/components/wallpapers";
 
-import { BackupPane, SecurityPane, SystemPane } from "./settings-panes";
+import { AccountPane, BackupPane, SecurityPane, SystemPane } from "./settings-panes";
+import Avatar from "@/components/Avatar";
 
 const PANES = [
+  { id: "account", name: "Account", glyph: "👤" },
   { id: "appearance", name: "Appearance", glyph: "◐" },
   { id: "wallpaper", name: "Wallpaper", glyph: "🖼" },
   { id: "system", name: "System", glyph: "⚙" },
@@ -28,7 +30,7 @@ export default function Settings({ win }: { win: WinState }) {
   }, [win.props.pane]);
 
   useEffect(() => {
-    os.setWindowTitle(win.id, "Settings");
+    os.setWindowTitle(win.id, "Ukkin");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [win.id]);
 
@@ -56,12 +58,20 @@ export default function Settings({ win }: { win: WinState }) {
       {/* sidebar */}
       <div className="w-48 shrink-0 border-r border-black/10 bg-neutral-200/60 p-2 dark:border-white/10 dark:bg-neutral-800/60">
         <div className="mb-3 flex items-center gap-2.5 px-1.5 pt-1">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-b from-sky-400 to-blue-600 text-[17px] font-bold text-white">
-            M
-          </div>
-          <div className="leading-tight">
-            <div className="text-[13px] font-semibold">Mustafa</div>
-            <div className="text-[11px] text-neutral-500 dark:text-neutral-400">Local Account</div>
+          {os.currentAccount ? (
+            <Avatar account={os.currentAccount} size={40} />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-b from-sky-400 to-blue-600 text-[17px] font-bold text-white">
+              ?
+            </div>
+          )}
+          <div className="min-w-0 leading-tight">
+            <div className="truncate text-[13px] font-semibold" data-testid="settings-user-name">
+              {os.currentAccount?.name ?? "—"}
+            </div>
+            <div className="text-[11px] text-neutral-500 dark:text-neutral-400">
+              {os.currentAccount?.guest ? "Guest Space" : "Local Account"}
+            </div>
           </div>
         </div>
         {PANES.map((p) => (
@@ -82,6 +92,10 @@ export default function Settings({ win }: { win: WinState }) {
 
       {/* pane */}
       <div className="uruk-scroll min-w-0 flex-1 overflow-y-auto bg-white p-5 dark:bg-neutral-900">
+        {pane === "account" && (
+          <AccountPane onGoSecurity={() => setPane("security")} />
+        )}
+
         {pane === "appearance" && (
           <div data-testid="settings-appearance">
             <h2 className="mb-4 text-[19px] font-bold">Appearance</h2>
@@ -128,6 +142,25 @@ export default function Settings({ win }: { win: WinState }) {
             <p className="mt-3 text-[12px] text-neutral-500 dark:text-neutral-400">
               The accent recolors selections, highlights, and controls across URUK OS.
             </p>
+
+            <div className="mb-2 mt-7 text-[13px] font-medium text-neutral-500 dark:text-neutral-400">Dock</div>
+            <label className="flex max-w-md cursor-pointer items-start gap-2.5">
+              <input
+                type="checkbox"
+                data-testid="settings-dock-autohide"
+                checked={os.dockAutoHide}
+                onChange={(e) => os.setDockAutoHide(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+              />
+              <span>
+                <span className="text-[13.5px]">Auto-hide Dock when a window is maximized</span>
+                <span className="mt-0.5 block text-[12px] leading-4 text-neutral-500 dark:text-neutral-400">
+                  Like macOS: a maximized window gets the whole screen, and
+                  the Dock slides back into view when you move the pointer
+                  to the bottom edge.
+                </span>
+              </span>
+            </label>
           </div>
         )}
 
@@ -197,7 +230,7 @@ export default function Settings({ win }: { win: WinState }) {
             </div>
             <div className="text-[22px] font-bold tracking-tight">URUK OS</div>
             <div className="mb-5 text-[13px] text-neutral-500 dark:text-neutral-400">
-              Version 0.3.0 · Browser build
+              Version 0.5.0 · Browser build
             </div>
             <dl className="w-full max-w-sm space-y-2 text-left text-[13px]">
               <div className="flex justify-between border-b border-black/5 pb-1.5 dark:border-white/5">
@@ -206,7 +239,15 @@ export default function Settings({ win }: { win: WinState }) {
               </div>
               <div className="flex justify-between border-b border-black/5 pb-1.5 dark:border-white/5">
                 <dt className="text-neutral-500 dark:text-neutral-400">User</dt>
-                <dd>Mustafa</dd>
+                <dd data-testid="about-user">{os.currentAccount?.name ?? "—"}</dd>
+              </div>
+              <div className="flex justify-between border-b border-black/5 pb-1.5 dark:border-white/5">
+                <dt className="text-neutral-500 dark:text-neutral-400">Account</dt>
+                <dd>
+                  {os.currentAccount?.guest
+                    ? "Guest space (on this device)"
+                    : "Local — lives on this device only"}
+                </dd>
               </div>
               <div className="flex justify-between border-b border-black/5 pb-1.5 dark:border-white/5">
                 <dt className="text-neutral-500 dark:text-neutral-400">File system</dt>

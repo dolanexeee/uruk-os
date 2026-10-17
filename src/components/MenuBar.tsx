@@ -3,6 +3,8 @@ import { APP_NAMES, useOS } from "@/store/os";
 import { useSystem } from "@/store/system";
 import { UrukMark } from "./icons";
 import { SearchGlyph, SlidersGlyph } from "./glyphs";
+import { lockSession, logoutSession } from "@/lib/session";
+import Avatar from "./Avatar";
 
 interface DropItem {
   label: string;
@@ -57,6 +59,7 @@ export default function MenuBar() {
     };
   }, [openMenu]);
 
+  const accountName = os.currentAccount?.name ?? "User";
   const menus: Record<string, DropItem[]> = {
     system: [
       {
@@ -64,8 +67,22 @@ export default function MenuBar() {
         action: () => os.openApp("settings", { pane: "about" }),
       },
       { label: "", separator: true },
-      { label: "Lock Screen", action: () => os.lock() },
-      { label: "Log Out Mustafa…", action: () => os.logout() },
+      { label: "Lock Screen", action: () => lockSession() },
+      { label: "Switch User…", action: () => logoutSession() },
+      { label: `Log Out ${accountName}…`, action: () => logoutSession() },
+    ],
+    user: [
+      {
+        label: os.currentAccount
+          ? `${os.currentAccount.name}${os.currentAccount.guest ? " (Guest)" : ""} — local account`
+          : "Local account",
+        disabled: true,
+      },
+      { label: "", separator: true },
+      { label: "Account Settings…", action: () => os.openApp("settings", { pane: "account" }) },
+      { label: "Lock Screen", action: () => lockSession() },
+      { label: "Switch User…", action: () => logoutSession() },
+      { label: `Log Out ${accountName}…`, action: () => logoutSession() },
     ],
     file: [
       {
@@ -107,9 +124,9 @@ export default function MenuBar() {
   const renderDrop = (key: string) =>
     openMenu === key && (
       <div
-        className="absolute left-0 top-full mt-[2px] min-w-[230px] rounded-lg p-1 fade-in
+        className={`absolute ${key === "user" ? "right-0" : "left-0"} top-full mt-[2px] min-w-[230px] rounded-lg p-1 fade-in
           bg-white/70 dark:bg-neutral-800/75 backdrop-blur-2xl
-          shadow-[0_12px_40px_rgba(0,0,0,0.35)] ring-1 ring-black/10 dark:ring-white/15 text-[13px] z-[9998]"
+          shadow-[0_12px_40px_rgba(0,0,0,0.35)] ring-1 ring-black/10 dark:ring-white/15 text-[13px] z-[9998]`}
       >
         {menus[key].map((item, i) =>
           item.separator ? (
@@ -204,6 +221,19 @@ export default function MenuBar() {
         >
           {formatClock(now)}
         </button>
+        {os.currentAccount && (
+          <div className="relative ml-1">
+            <button
+              data-testid="menubar-user"
+              title={`${os.currentAccount.name} — account`}
+              className={`flex items-center rounded-full p-[1px] ${openMenu === "user" ? "bg-black/10 dark:bg-white/15" : ""}`}
+              onClick={() => setOpenMenu(openMenu === "user" ? null : "user")}
+            >
+              <Avatar account={os.currentAccount} size={20} fontSize={10} />
+            </button>
+            {renderDrop("user")}
+          </div>
+        )}
       </div>
     </div>
   );

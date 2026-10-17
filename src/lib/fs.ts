@@ -1,6 +1,7 @@
 import { openDB, type IDBPDatabase } from "idb";
 import { create } from "zustand";
 import { notify } from "@/store/notifications";
+import { dbNameFor } from "./accounts";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -26,18 +27,25 @@ export interface FSNode {
 export const ROOT_ID = "root";
 export const TRASH_ID = "trash";
 
-const DB_NAME = "uruk-os-db";
 const DB_VERSION = 1;
 
 /* ------------------------------------------------------------------ */
 /* IndexedDB plumbing                                                  */
+/*                                                                     */
+/* Phase 4A: every account owns its own database. The legacy account   */
+/* keeps the original `uruk-os-db` (that IS the migration — its data   */
+/* never moves); other accounts use `uruk-os-db-<accountId>`.          */
 /* ------------------------------------------------------------------ */
+
+let currentDbName = dbNameFor("mustafa");
+/** Home-folder (root node) name used when seeding a fresh account. */
+let seedHomeName = "mustafa";
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
 function db(): Promise<IDBPDatabase> {
   if (!dbPromise) {
-    dbPromise = openDB(DB_NAME, DB_VERSION, {
+    dbPromise = openDB(currentDbName, DB_VERSION, {
       upgrade(d) {
         const store = d.createObjectStore("nodes", { keyPath: "id" });
         store.createIndex("by-parent", "parentId");
@@ -45,6 +53,30 @@ function db(): Promise<IDBPDatabase> {
     });
   }
   return dbPromise;
+}
+
+/** Close the open connection (needed before deleting a database). */
+export async function closeFSConnection(): Promise<void> {
+  if (dbPromise) {
+    try {
+      (await dbPromise).close();
+    } catch {
+      /* ignore */
+    }
+    dbPromise = null;
+  }
+}
+
+/** Erase an account's whole database (account deletion). */
+export async function deleteAccountDatabase(accountId: string): Promise<void> {
+  const name = dbNameFor(accountId);
+  if (name === currentDbName) await closeFSConnection();
+  await new Promise<void>((resolve) => {
+    const req = indexedDB.deleteDatabase(name);
+    req.onsuccess = () => resolve();
+    req.onerror = () => resolve();
+    req.onblocked = () => resolve();
+  });
 }
 
 async function dbAll(): Promise<FSNode[]> {
@@ -115,7 +147,7 @@ function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
-function seedNodes(): FSNode[] {
+function seedNodes(homeName: string): FSNode[] {
   const now = Date.now();
   const mk = (
     partial: Partial<FSNode> & Pick<FSNode, "id" | "name" | "type">,
@@ -136,8 +168,8 @@ function seedNodes(): FSNode[] {
   const svgBlob = new Blob([SAMPLE_SVG], { type: "image/svg+xml" });
 
   return [
-    mk({ id: ROOT_ID, name: "mustafa", type: "folder", parentId: null }),
-    mk({ id: TRASH_ID, name: "Trash", type: "folder", parentId: null }),
+    mk({ id: ROOT_ID, name: homeName, type: "folder", parentId: null }),
+    mk({ id: TRASH_ID, name: "Shard", type: "folder", parentId: null }),
     desktop,
     documents,
     downloads,
@@ -209,7 +241,7 @@ export function totalSize(nodes: NodeMap): number {
 
 /** Display path: root renders as ~, e.g. ~/Documents/a.txt */
 export function pathOf(nodes: NodeMap, id: string): string {
-  if (id === TRASH_ID) return "/Trash";
+  if (id === TRASH_ID) return "/Shard";
   const parts: string[] = [];
   let cur: FSNode | undefined = nodes[id];
   while (cur && cur.id !== ROOT_ID) {
@@ -267,6 +299,8 @@ interface FSStore {
   nodes: NodeMap;
   loaded: boolean;
   load: () => Promise<void>;
+  /** Bind the store to another account's database and load it. */
+  switchAccount: (accountId: string, homeName: string) => Promise<void>;
   createFolder: (parentId: string, name: string, dedupe?: boolean) => Promise<FSNode>;
   createFile: (
     parentId: string,
@@ -298,7 +332,7 @@ export const useFS = create<FSStore>((set, get) => ({
     loadPromise = (async () => {
       let all = await dbAll();
       if (all.length === 0) {
-        const seed = seedNodes();
+        const seed = seedNodes(seedHomeName);
         await dbPutMany(seed);
         all = seed;
       }
@@ -307,6 +341,17 @@ export const useFS = create<FSStore>((set, get) => ({
       set({ nodes: map, loaded: true });
     })();
     return loadPromise;
+  },
+
+  switchAccount: async (accountId, homeName) => {
+    const name = dbNameFor(accountId);
+    if (name === currentDbName && get().loaded) return;
+    await closeFSConnection();
+    currentDbName = name;
+    seedHomeName = homeName;
+    loadPromise = null;
+    set({ nodes: {}, loaded: false });
+    await get().load();
   },
 
   createFolder: async (parentId, name, dedupe = false) => {
@@ -474,7 +519,7 @@ export const useFS = create<FSStore>((set, get) => ({
     if (out.length) {
       const dest = get().nodes[parentId]?.name ?? "folder";
       notify(
-        "Finder",
+        "Uruk Files",
         "Import complete",
         `${out.length} file${out.length === 1 ? "" : "s"} imported into ${dest}.`,
       );

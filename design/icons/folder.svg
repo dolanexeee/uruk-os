@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F6D67C"/>
+      <stop offset="0.55" stop-color="#D9A441"/>
+      <stop offset="1" stop-color="#B57E26"/>
+    </linearGradient>
+    <linearGradient id="bronze" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C99A5F"/>
+      <stop offset="1" stop-color="#96682F"/>
+    </linearGradient>
+  </defs>
+  <!-- generic folder: plain gold, no emblem — the working folder of the system -->
+  <path d="M13 31a6 6 0 0 1 6-6h15l7 8h34a6 6 0 0 1 6 6v33a6 6 0 0 1-6 6H19a6 6 0 0 1-6-6V31Z" fill="url(#bronze)"/>
+  <rect x="13" y="42" width="68" height="36" rx="6" fill="url(#gold)"/>
+  <line x1="14" y1="45.5" x2="80" y2="45.5" stroke="#FFF3D6" stroke-opacity="0.55" stroke-width="1.8"/>
+</svg>

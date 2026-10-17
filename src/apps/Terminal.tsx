@@ -75,7 +75,9 @@ export default function Terminal({ win }: { win: WinState }) {
   }, [lines]);
 
   const nodes = () => fs().nodes;
-  const prompt = () => `mustafa@uruk:${pathOf(nodes(), cwdId)}$`;
+  /** The signed-in account's home name (the FS root node's name). */
+  const homeName = () => nodes()[ROOT_ID]?.name ?? "uruk";
+  const prompt = () => `${homeName()}@uruk:${pathOf(nodes(), cwdId)}$`;
 
   const print = (newLines: Line[]) => setLines((l) => [...l, ...newLines]);
   const out = (text: string) => ({ text, kind: "out" as const });
@@ -94,9 +96,9 @@ export default function Terminal({ win }: { win: WinState }) {
     }
     const uptimeMin = Math.max(0, Math.floor((Date.now() - BOOT_TIME) / 60000));
     const info = [
-      "mustafa@uruk-os",
+      `${homeName()}@uruk-os`,
       "────────────────",
-      "OS:        URUK OS 0.3.0 (browser build)",
+      "OS:        URUK OS 0.5.0 (browser build)",
       `Shell:     uruksh 1.0`,
       `Files:     ${Object.keys(n).length} nodes, ${(totalSize(n) / 1024).toFixed(1)} KB stored`,
       `Storage:   ${storageLine}`,
@@ -128,7 +130,7 @@ export default function Terminal({ win }: { win: WinState }) {
       case "pwd":
         return [out(pathOf(n, cwdId))];
       case "whoami":
-        return [out("mustafa")];
+        return [out(homeName())];
       case "date":
         return [out(new Date().toString())];
       case "clear":
@@ -307,9 +309,23 @@ export default function Terminal({ win }: { win: WinState }) {
         const what = target.toLowerCase().replace(/\s+/g, "");
         if (what === "finder") {
           os().openApp("finder", { folderId: cwdId });
-          return [out("Opening Finder…")];
+          return [out(`Opening ${APP_NAMES.finder}…`)];
         }
         const appShortcuts: Record<string, AppId> = {
+          // Identity names (design/NAMES.md), normalized.
+          urukfiles: "finder",
+          urukshell: "terminal",
+          scribe: "editor",
+          ukkin: "settings",
+          shamashgallery: "photos",
+          shamasheye: "preview",
+          tablet: "notes",
+          abacus: "calculator",
+          nanna: "calendar",
+          lyre: "music",
+          ishtargate: "browser",
+          urukcode: "code",
+          // Functional shorthands kept as aliases.
           terminal: "terminal",
           settings: "settings",
           editor: "editor",

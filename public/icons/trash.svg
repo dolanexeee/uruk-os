@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9C6A38"/>
+      <stop offset="1" stop-color="#6B4423"/>
+    </linearGradient>
+    <linearGradient id="bronze" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C99A5F"/>
+      <stop offset="1" stop-color="#8F6234"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F6D67C"/>
+      <stop offset="1" stop-color="#D9A441"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="88" height="88" rx="20" fill="url(#ground)"/>
+  <rect x="4.75" y="4.75" width="86.5" height="86.5" rx="19.25" fill="none" stroke="#F6D67C" stroke-opacity="0.2" stroke-width="1.5"/>
+  <!-- a clay vessel for what is cast away -->
+  <path d="M37 31 C26 37 24 49 31 60 C37 70 42 76 48 76 C54 76 59 70 65 60 C72 49 70 37 59 31 Z" fill="url(#bronze)"/>
+  <!-- handles -->
+  <path d="M37 34 C29 37 28 46 33 51" fill="none" stroke="url(#bronze)" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M59 34 C67 37 68 46 63 51" fill="none" stroke="url(#bronze)" stroke-width="4.5" stroke-linecap="round"/>
+  <!-- rim and neck -->
+  <path d="M39 24 h18 l2.5 8 H36.5 Z" fill="url(#bronze)"/>
+  <rect x="35" y="19" width="26" height="5.5" rx="2.75" fill="url(#gold)"/>
+  <!-- a band of wedges around the belly -->
+  <g fill="#F6D67C" opacity="0.9">
+    <path d="M35 52 L42 54.5 L35 57 Z"/>
+    <path d="M44.5 52 L51.5 54.5 L44.5 57 Z"/>
+    <path d="M54 52 L61 54.5 L54 57 Z"/>
+  </g>
+  <!-- a crack: this vessel has seen use -->
+  <path d="M44 62 L47 67 L45 71 L48 75" fill="none" stroke="#5F3B1C" stroke-width="2" stroke-linecap="round" opacity="0.65"/>
+  <!-- foot -->
+  <rect x="41" y="76" width="14" height="4" rx="2" fill="url(#bronze)"/>
+</svg>

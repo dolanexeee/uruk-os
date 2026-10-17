@@ -203,7 +203,7 @@ export default function Calculator({ win }: { win: WinState }) {
   stateRef.current = { expr, justEvaluated };
 
   useEffect(() => {
-    os.setWindowTitle(win.id, "Calculator");
+    os.setWindowTitle(win.id, "Abacus");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [win.id]);
 

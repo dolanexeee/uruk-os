@@ -1,4 +1,9 @@
 import { create } from "zustand";
+import {
+  getActiveAccountId,
+  settingsKeyFor,
+  type Account,
+} from "@/lib/accounts";
 
 export type AppId =
   | "finder"
@@ -49,18 +54,22 @@ export interface FileMenuItem {
   separator?: boolean;
 }
 
+/**
+ * Display names — the approved URUK identity (design/NAMES.md).
+ * Internal AppIds are unchanged; only what the user reads changed.
+ */
 export const APP_NAMES: Record<AppId, string> = {
-  finder: "Finder",
-  terminal: "Terminal",
-  editor: "Editor",
-  settings: "Settings",
-  photos: "Photos",
-  preview: "Preview",
-  notes: "Notes",
-  calculator: "Calculator",
-  calendar: "Calendar",
-  music: "Music",
-  browser: "URUK Browser",
+  finder: "Uruk Files",
+  terminal: "Uruk Shell",
+  editor: "Scribe",
+  settings: "Ukkin",
+  photos: "Shamash Gallery",
+  preview: "Shamash Eye",
+  notes: "Tablet",
+  calculator: "Abacus",
+  calendar: "Nanna",
+  music: "Lyre",
+  browser: "Ishtar Gate",
   code: "Uruk Code",
 };
 
@@ -106,19 +115,21 @@ interface Settings {
   wallpaper: string;
   /** FS node id of a user photo used as wallpaper (Photos → Set as Wallpaper). */
   customWallpaperId: string | null;
+  /** Phase 4A: hide the Dock while any window is maximized (macOS-style). */
+  dockAutoHide: boolean;
 }
 
-const SETTINGS_KEY = "uruk-os-settings-v1";
 const DEFAULT_SETTINGS: Settings = {
   appearance: "dark",
   accent: "#0a84ff",
   wallpaper: "ziggurat",
   customWallpaperId: null,
+  dockAutoHide: true,
 };
 
 function loadSettings(): Settings {
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
+    const raw = localStorage.getItem(settingsKeyFor(getActiveAccountId()));
     if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
   } catch {
     /* ignore */
@@ -128,7 +139,7 @@ function loadSettings(): Settings {
 
 function saveSettings(s: Settings) {
   try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+    localStorage.setItem(settingsKeyFor(getActiveAccountId()), JSON.stringify(s));
   } catch {
     /* ignore */
   }
@@ -141,8 +152,18 @@ interface OSStore extends Settings {
   zCounter: number;
   fileMenuItems: FileMenuItem[] | null;
 
+  /* Session (Phase 4A accounts) */
+  accounts: Account[];
+  accountsReady: boolean;
+  currentAccount: Account | null;
+  /** True when the login screen is a LOCK (session alive), not a sign-out. */
+  sessionLocked: boolean;
+
   hydrateSettings: () => void;
   setPhase: (p: Phase) => void;
+  setAccounts: (accounts: Account[], ready: boolean) => void;
+  setCurrentAccount: (a: Account | null) => void;
+  setSessionLocked: (locked: boolean) => void;
   login: () => void;
   lock: () => void;
   logout: () => void;
@@ -164,6 +185,7 @@ interface OSStore extends Settings {
   setAccent: (a: string) => void;
   setWallpaper: (w: string) => void;
   setCustomWallpaper: (nodeId: string | null) => void;
+  setDockAutoHide: (on: boolean) => void;
 }
 
 let winCounter = 0;
@@ -180,11 +202,26 @@ export const useOS = create<OSStore>((set, get) => {
     zCounter: 10,
     fileMenuItems: null,
 
+    accounts: [],
+    accountsReady: false,
+    currentAccount: null,
+    sessionLocked: false,
+
     hydrateSettings: () => set(loadSettings()),
     setPhase: (p) => set({ phase: p }),
-    login: () => set({ phase: "desktop" }),
-    lock: () => set({ phase: "login" }),
-    logout: () => set({ phase: "login", windows: [], focusedId: null, fileMenuItems: null }),
+    setAccounts: (accounts, ready) => set({ accounts, accountsReady: ready }),
+    setCurrentAccount: (currentAccount) => set({ currentAccount }),
+    setSessionLocked: (sessionLocked) => set({ sessionLocked }),
+    login: () => set({ phase: "desktop", sessionLocked: false }),
+    lock: () => set({ phase: "login", sessionLocked: true }),
+    logout: () =>
+      set({
+        phase: "login",
+        windows: [],
+        focusedId: null,
+        fileMenuItems: null,
+        sessionLocked: false,
+      }),
 
     openApp: (app, props = {}, title) => {
       const state = get();
@@ -339,48 +376,38 @@ export const useOS = create<OSStore>((set, get) => {
     setFileMenuItems: (items) => set({ fileMenuItems: items }),
 
     setAppearance: (appearance) => {
-      const s = {
-        appearance,
-        accent: get().accent,
-        wallpaper: get().wallpaper,
-        customWallpaperId: get().customWallpaperId,
-      };
-      saveSettings(s);
+      saveSettings({ ...pickSettings(get()), appearance });
       set({ appearance });
     },
     setAccent: (accent) => {
-      const s = {
-        appearance: get().appearance,
-        accent,
-        wallpaper: get().wallpaper,
-        customWallpaperId: get().customWallpaperId,
-      };
-      saveSettings(s);
+      saveSettings({ ...pickSettings(get()), accent });
       set({ accent });
     },
     setWallpaper: (wallpaper) => {
       // Choosing a built-in wallpaper clears any custom photo wallpaper.
-      const s = {
-        appearance: get().appearance,
-        accent: get().accent,
-        wallpaper,
-        customWallpaperId: null,
-      };
-      saveSettings(s);
+      saveSettings({ ...pickSettings(get()), wallpaper, customWallpaperId: null });
       set({ wallpaper, customWallpaperId: null });
     },
     setCustomWallpaper: (customWallpaperId) => {
-      const s = {
-        appearance: get().appearance,
-        accent: get().accent,
-        wallpaper: get().wallpaper,
-        customWallpaperId,
-      };
-      saveSettings(s);
+      saveSettings({ ...pickSettings(get()), customWallpaperId });
       set({ customWallpaperId });
+    },
+    setDockAutoHide: (dockAutoHide) => {
+      saveSettings({ ...pickSettings(get()), dockAutoHide });
+      set({ dockAutoHide });
     },
   };
 });
+
+function pickSettings(s: Settings): Settings {
+  return {
+    appearance: s.appearance,
+    accent: s.accent,
+    wallpaper: s.wallpaper,
+    customWallpaperId: s.customWallpaperId,
+    dockAutoHide: s.dockAutoHide,
+  };
+}
 
 export function useFocusedWindow(): WinState | null {
   return useOS((s) => s.windows.find((w) => w.id === s.focusedId) ?? null);

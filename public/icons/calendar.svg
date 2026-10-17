@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1D56B4"/>
+      <stop offset="1" stop-color="#123064"/>
+    </linearGradient>
+    <linearGradient id="cream" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F7ECD2"/>
+      <stop offset="1" stop-color="#EAD9AE"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F6D67C"/>
+      <stop offset="0.55" stop-color="#D9A441"/>
+      <stop offset="1" stop-color="#B57E26"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="88" height="88" rx="20" fill="url(#ground)"/>
+  <rect x="4.75" y="4.75" width="86.5" height="86.5" rx="19.25" fill="none" stroke="#F6D67C" stroke-opacity="0.18" stroke-width="1.5"/>
+  <!-- binding rings -->
+  <g fill="none" stroke="url(#gold)" stroke-width="4.5">
+    <circle cx="36" cy="25" r="4.6"/>
+    <circle cx="60" cy="25" r="4.6"/>
+  </g>
+  <!-- the tablet of days -->
+  <rect x="23" y="28" width="50" height="49" rx="7" fill="url(#cream)"/>
+  <path d="M23 35a7 7 0 0 1 7-7h36a7 7 0 0 1 7 7v6H23v-6Z" fill="url(#gold)"/>
+  <!-- eight-pointed Star of Ishtar marks the appointed day -->
+  <g fill="url(#gold)">
+    <rect x="38" y="47" width="20" height="20" rx="2"/>
+    <rect x="38" y="47" width="20" height="20" rx="2" transform="rotate(45 48 57)"/>
+  </g>
+  <circle cx="48" cy="57" r="4" fill="#16386E"/>
+  <circle cx="48" cy="57" r="1.6" fill="#F6D67C"/>
+</svg>

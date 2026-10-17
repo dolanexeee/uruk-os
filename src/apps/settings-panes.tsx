@@ -22,6 +22,194 @@ import {
   testSyncConnection,
   type SyncConfig,
 } from "@/lib/sync";
+import {
+  AVATAR_COLORS,
+  AVATAR_GLYPHS,
+  listAccounts,
+  updateAccount,
+} from "@/lib/accounts";
+import { deleteAccountCompletely } from "@/lib/session";
+import Avatar from "@/components/Avatar";
+
+/* ---------------------------------------------------------------- */
+/* Account pane — rename, avatar, delete (Phase 4A)                   */
+/* ---------------------------------------------------------------- */
+
+export function AccountPane({ onGoSecurity }: { onGoSecurity: () => void }) {
+  const os = useOS();
+  const account = os.currentAccount;
+  const [name, setName] = useState(account?.name ?? "");
+  const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  if (!account) {
+    return (
+      <div data-testid="settings-account">
+        <h2 className="mb-4 text-[19px] font-bold">Account</h2>
+        <p className="text-[13px] text-neutral-500">No account is signed in.</p>
+      </div>
+    );
+  }
+
+  const apply = (patch: { name?: string; color?: string; glyph?: string }, msg: string) => {
+    const updated = updateAccount(account.id, patch);
+    if (updated) {
+      os.setCurrentAccount(updated);
+      os.setAccounts(listAccounts(), true);
+      setStatus({ ok: true, msg });
+    }
+  };
+
+  const inputCls =
+    "w-64 rounded-lg border border-black/10 bg-neutral-50 px-3 py-1.5 text-[13.5px] outline-none focus:border-[var(--accent)] dark:border-white/15 dark:bg-neutral-800";
+
+  return (
+    <div data-testid="settings-account">
+      <h2 className="mb-4 text-[19px] font-bold">Account</h2>
+
+      <div className="mb-5 flex items-center gap-3">
+        <Avatar account={account} size={52} />
+        <div className="leading-tight">
+          <div className="text-[15px] font-semibold">{account.name}</div>
+          <div className="text-[12px] text-neutral-500 dark:text-neutral-400">
+            {account.guest ? "Guest space" : "Local account"} · on this device since{" "}
+            {new Date(account.createdAt).toLocaleDateString()}
+          </div>
+        </div>
+      </div>
+
+      <p className="mb-6 max-w-md text-[12.5px] leading-5 text-neutral-500 dark:text-neutral-400">
+        This account lives <b>only on this device, in this browser</b> —
+        its files, settings, and PIN never leave the machine and there
+        is no server and no sign-up. Other accounts on this device
+        cannot see this account&apos;s files. To move between devices,
+        use a .urukos backup (Backup pane) or the experimental
+        bring-your-own-Supabase sync.
+      </p>
+
+      <div className="mb-2 text-[13px] font-medium text-neutral-500 dark:text-neutral-400">
+        Display name
+      </div>
+      <div className="mb-6 flex items-center gap-2">
+        <input
+          data-testid="account-rename-input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className={inputCls}
+        />
+        <button
+          data-testid="account-rename-save"
+          className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-[13px] font-medium text-white disabled:opacity-50"
+          disabled={!name.trim() || name.trim() === account.name}
+          onClick={() => apply({ name: name.trim() }, "Name saved.")}
+        >
+          Save
+        </button>
+      </div>
+
+      <div className="mb-2 text-[13px] font-medium text-neutral-500 dark:text-neutral-400">
+        Avatar color
+      </div>
+      <div className="mb-5 flex items-center gap-2">
+        {AVATAR_COLORS.map((c, i) => (
+          <button
+            key={c}
+            data-testid={`account-avatar-color-${i}`}
+            title={c}
+            className={`h-7 w-7 rounded-full transition-transform hover:scale-110 ${
+              account.color === c ? "ring-2 ring-neutral-400 ring-offset-2 dark:ring-offset-neutral-900" : ""
+            }`}
+            style={{ backgroundColor: c }}
+            onClick={() => apply({ color: c }, "Avatar color saved.")}
+          />
+        ))}
+      </div>
+
+      <div className="mb-2 text-[13px] font-medium text-neutral-500 dark:text-neutral-400">
+        Avatar symbol
+      </div>
+      <div className="mb-6 flex max-w-sm flex-wrap items-center gap-1.5">
+        {AVATAR_GLYPHS.map((g, i) => (
+          <button
+            key={g}
+            data-testid={`account-avatar-glyph-${i}`}
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-[15px] ring-1 ring-black/10 dark:ring-white/15 ${
+              account.glyph === g
+                ? "bg-[var(--accent)] text-white"
+                : "bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+            }`}
+            onClick={() => apply({ glyph: g }, "Avatar symbol saved.")}
+          >
+            {g}
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-6 flex items-center gap-3 border-t border-black/10 pt-4 dark:border-white/10">
+        <span className="text-[13px]">
+          Lock-screen PIN: <b>{hasPin(account.id) ? "set" : "not set"}</b>
+        </span>
+        <button
+          className="rounded-lg border border-black/10 px-3 py-1 text-[12.5px] hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+          onClick={onGoSecurity}
+        >
+          Manage in Security →
+        </button>
+      </div>
+
+      <div className="border-t border-red-200 pt-4 dark:border-red-500/25">
+        <div className="mb-1 text-[13.5px] font-semibold text-red-600 dark:text-red-400">
+          {account.guest ? "Erase guest space" : "Delete this account"}
+        </div>
+        <p className="mb-3 max-w-md text-[12.5px] leading-5 text-neutral-500 dark:text-neutral-400">
+          Permanently erases <b>this account&apos;s</b> files, settings,
+          and PIN from this device. Every other account is left exactly
+          as it is. This cannot be undone.
+        </p>
+        {!confirmingDelete ? (
+          <button
+            data-testid="account-delete"
+            className="rounded-lg border border-red-300 px-3.5 py-1.5 text-[13px] font-medium text-red-600 hover:bg-red-50 dark:border-red-500/40 dark:text-red-400 dark:hover:bg-red-500/10"
+            onClick={() => setConfirmingDelete(true)}
+          >
+            {account.guest ? "Erase guest space…" : "Delete account…"}
+          </button>
+        ) : (
+          <div className="flex items-center gap-2" data-testid="account-delete-confirm-box">
+            <button
+              data-testid="account-delete-confirm"
+              disabled={deleting}
+              className="rounded-lg bg-red-500 px-3.5 py-1.5 text-[13px] font-medium text-white disabled:opacity-50"
+              onClick={() => {
+                setDeleting(true);
+                void deleteAccountCompletely(account.id);
+              }}
+            >
+              {deleting ? "Erasing…" : "Yes, erase everything for this account"}
+            </button>
+            <button
+              data-testid="account-delete-cancel"
+              className="rounded-lg border border-black/10 px-3 py-1.5 text-[13px] dark:border-white/15"
+              onClick={() => setConfirmingDelete(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+
+      {status && (
+        <div
+          data-testid="account-status"
+          className={`mt-4 text-[12.5px] ${status.ok ? "text-green-600 dark:text-green-400" : "text-red-500"}`}
+        >
+          {status.msg}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ---------------------------------------------------------------- */
 /* System pane — weather city, screensaver idle, lock                 */
@@ -153,8 +341,8 @@ export function SecurityPane() {
       </div>
       <p className="mb-4 max-w-md text-[12.5px] leading-5 text-neutral-500 dark:text-neutral-400">
         {pinExists
-          ? "A PIN is set. The lock screen asks for it before unlocking. Only a salted SHA-256 hash of the PIN is stored on this device — never the PIN itself."
-          : "Set a PIN to lock this machine. Only a salted SHA-256 hash is stored on this device — never the PIN itself. This is a local lock, not an account password."}
+          ? "A PIN is set for this account. The lock screen asks for it before unlocking. Only a salted SHA-256 hash of the PIN is stored on this device — never the PIN itself."
+          : "Set a PIN to lock this account. Only a salted SHA-256 hash is stored on this device — never the PIN itself. This is a local lock, not a network password — each account has its own."}
       </p>
 
       {pinExists && (
@@ -342,11 +530,11 @@ export function BackupPane() {
     <div data-testid="settings-backup">
       <h2 className="mb-4 text-[19px] font-bold">Backup &amp; Restore</h2>
       <p className="mb-4 max-w-lg text-[12.5px] leading-5 text-neutral-500 dark:text-neutral-400">
-        Your machine lives in this browser. A backup is a single
+        This account lives in this browser. A backup is a single
         <code className="mx-1 rounded bg-black/5 px-1 dark:bg-white/10">.urukos</code>
-        file holding the entire file system (files included) plus your
-        settings — free forever, stored wherever you keep it. The
-        lock-screen PIN is never part of a backup.
+        file holding this account's entire file system (files included)
+        plus its settings — free forever, stored wherever you keep it.
+        The lock-screen PIN is never part of a backup.
       </p>
 
       <div className="mb-6 flex flex-wrap gap-2">

@@ -1,6 +1,7 @@
 /**
- * Uruk OS — Phase 1 + Phase 2 end-to-end suite (Playwright, Chromium).
- * Runs against the PRODUCTION static export served by scripts/serve-out.mjs.
+ * Uruk OS — Phases 1–4A end-to-end suite (Playwright, Chromium).
+ * Runs against the PRODUCTION server build (`next start`), so the
+ * /api/proxy route is exercised exactly as deployed.
  * Usage: node qa/run-tests.mjs   (expects `npm run build` to have run)
  */
 import { chromium } from "playwright";
@@ -44,16 +45,56 @@ async function waitFor(fn, timeout = 9000, step = 120) {
   }
 }
 
-const server = spawn("node", ["scripts/serve-out.mjs", "-p", String(PORT)], {
-  cwd: ROOT,
-  stdio: "ignore",
-});
+const server = spawn(
+  process.execPath,
+  ["node_modules/next/dist/bin/next", "start", "-p", String(PORT)],
+  { cwd: ROOT, stdio: "ignore" },
+);
 
 async function focusWindowViaMenu(page, titleRe) {
   await page.click('[data-testid="menubar-window"]');
   await page.waitForTimeout(200);
   await page.getByRole("button", { name: titleRe }).last().click();
   await page.waitForTimeout(250);
+}
+
+/**
+ * Log in to the desktop from whatever the login screen is showing:
+ * the first-run create-account form (fresh profile), a PIN prompt,
+ * or the plain account picker. Defaults to creating/entering the
+ * "Mustafa" account the rest of the suite assumes.
+ */
+async function loginToDesktop(page, { pin } = {}) {
+  const shown = await waitFor(
+    async () =>
+      (await page.locator('[data-testid="login-screen"]').isVisible().catch(() => false)) ||
+      (await page.locator('[data-testid="account-name-input"]').isVisible().catch(() => false)),
+    20000,
+  );
+  if (!shown) throw new Error("login screen never appeared");
+  if (await page.locator('[data-testid="account-name-input"]').isVisible().catch(() => false)) {
+    await page.fill('[data-testid="account-name-input"]', "Mustafa");
+    await page.click('[data-testid="account-create-submit"]');
+  } else if (await page.locator('[data-testid="login-pin-input"]').isVisible().catch(() => false)) {
+    if (!pin) throw new Error("login needs a PIN but none was given to loginToDesktop");
+    await page.fill('[data-testid="login-pin-input"]', pin);
+    await page.click('[data-testid="login-pin-submit"]');
+  } else {
+    await page.click('[data-testid="login-button"]');
+  }
+  const ok = await waitFor(
+    () => page.locator('[data-testid="dock"]').isVisible().catch(() => false),
+    20000,
+  );
+  if (!ok) throw new Error("login did not reach the desktop");
+}
+
+/** Read the active account's persisted OS settings (key is account-scoped). */
+async function readSettingsBlob(page) {
+  return page.evaluate(() => {
+    const k = Object.keys(localStorage).find((x) => x.startsWith("uruk-os-settings-v1"));
+    return k ? localStorage.getItem(k) ?? "" : "";
+  });
 }
 
 async function termType(page, cmd) {
@@ -84,7 +125,7 @@ async function main() {
   check("boot screen appears", await page.locator('[data-testid="boot-screen"]').isVisible().catch(() => false));
   const loginVisible = await waitFor(() => page.locator('[data-testid="login-screen"]').isVisible().catch(() => false));
   check("login screen after boot", !!loginVisible);
-  await page.click('[data-testid="login-button"]');
+  await loginToDesktop(page);
   const desktopUp = await waitFor(() => page.locator('[data-testid="dock"]').isVisible().catch(() => false));
   check("desktop + dock after login", !!desktopUp);
   check("menu bar clock renders", !!(await page.locator('[data-testid="menubar-clock"]').textContent().catch(() => ""))?.includes("M"));
@@ -141,7 +182,7 @@ async function main() {
   await area.press("Control+s");
   await page.waitForTimeout(400);
   check("editor reports Saved after Ctrl+S", (await page.locator('[data-testid="window-editor"]').innerText()).includes("Saved"));
-  await focusWindowViaMenu(page, /Terminal/);
+  await focusWindowViaMenu(page, /Uruk Shell/);
   await termType(page, "cat Documents/a.txt");
   const termText3 = await page.locator('[data-testid="terminal"]').innerText();
   check("terminal cat shows editor-saved text", /hello from the editor/.test(termText3));
@@ -155,7 +196,7 @@ async function main() {
   await page.click('[data-testid="dock-icon-finder"]');
   const restored = await waitFor(() => page.locator('[data-testid="window-finder"]').isVisible().catch(() => false));
   check("finder restored via dock click", !!restored);
-  await focusWindowViaMenu(page, /Terminal/);
+  await focusWindowViaMenu(page, /Uruk Shell/);
   const termWin = page.locator('[data-testid="window-terminal"]');
   const before = await termWin.boundingBox();
   await termWin.getByLabel("Zoom").click();
@@ -179,7 +220,7 @@ async function main() {
   await page.click('[data-testid="settings-pane-wallpaper"]');
   await page.click('[data-testid="settings-wallpaper-dunes"]');
   await page.waitForTimeout(300);
-  const settingsAfterWp = await page.evaluate(() => localStorage.getItem("uruk-os-settings-v1") ?? "");
+  const settingsAfterWp = await readSettingsBlob(page);
   check("wallpaper choice persisted to storage", settingsAfterWp.includes("dunes"), settingsAfterWp);
   await page.click('[data-testid="settings-pane-appearance"]');
   await page.click('[data-testid="settings-theme-light"]');
@@ -194,9 +235,9 @@ async function main() {
   await page.reload({ waitUntil: "networkidle" });
   const login2 = await waitFor(() => page.locator('[data-testid="login-screen"]').isVisible().catch(() => false), 12000);
   check("login screen after reload", !!login2);
-  await page.click('[data-testid="login-button"]');
+  await loginToDesktop(page);
   await waitFor(() => page.locator('[data-testid="dock"]').isVisible().catch(() => false));
-  const settingsPersisted = await page.evaluate(() => localStorage.getItem("uruk-os-settings-v1") ?? "");
+  const settingsPersisted = await readSettingsBlob(page);
   check("settings persisted (dunes + light)", settingsPersisted.includes("dunes") && settingsPersisted.includes("light"), settingsPersisted);
   const rootClass2 = await page.getAttribute('[data-testid="os-root"]', "class");
   check("light mode still applied after reload", !(rootClass2 ?? "").includes("dark"));
@@ -271,7 +312,7 @@ async function main() {
   check("notes: sidebar title follows first line", notesListText.includes("Shopping List"));
   await page.screenshot({ path: path.join(SHOTS, "09-notes.png") });
   await closeWin("notes");
-  await focusWindowViaMenu(page, /Terminal/);
+  await focusWindowViaMenu(page, /Uruk Shell/);
   await termType(page, "ls Notes");
   const termNotes = await page.locator('[data-testid="terminal"]').innerText();
   check("notes: a real note file exists in Notes/", termNotes.includes("New Note.txt"), termNotes.slice(-300));
@@ -302,7 +343,7 @@ async function main() {
   await closeWin("calendar");
 
   console.log("— phase 2: uruk code (run JS, preview HTML) —");
-  await focusWindowViaMenu(page, /Terminal/);
+  await focusWindowViaMenu(page, /Uruk Shell/);
   await termType(page, "echo 'console.log(40 + 2)' > Documents/run.js");
   await termType(page, 'echo "<h1>Hello Preview</h1>" > Documents/page.html');
   await page.click('[data-testid="dock-icon-code"]');
@@ -415,8 +456,7 @@ async function main() {
   console.log("— phase 2: persistence + associations after reload —");
   await page.reload({ waitUntil: "networkidle" });
   await waitFor(() => page.locator('[data-testid="login-screen"]').isVisible().catch(() => false), 12000);
-  await page.click('[data-testid="login-button"]');
-  await waitFor(() => page.locator('[data-testid="dock"]').isVisible().catch(() => false));
+  await loginToDesktop(page);
   const wpPersist = await waitFor(async () => (await page.locator('[data-testid="custom-wallpaper-img"]').count()) > 0);
   check("photos: custom wallpaper persists after reload", !!wpPersist);
   await page.click('[data-testid="dock-icon-calendar"]');
@@ -462,7 +502,7 @@ async function main() {
   };
 
   console.log("— phase 3: spotlight (name, content, events) —");
-  await focusWindowViaMenu(page, /Terminal/);
+  await focusWindowViaMenu(page, /Uruk Shell/);
   await termType(page, 'echo "quixotic melon festival" > Notes/quixote.txt');
   await page.click('[data-testid="menubar-spotlight"]');
   const spotUp = await waitFor(() => page.locator('[data-testid="spotlight"]').isVisible().catch(() => false));
@@ -523,8 +563,7 @@ async function main() {
   await closeWin("music");
   await page.reload({ waitUntil: "networkidle" });
   await waitFor(() => page.locator('[data-testid="login-screen"]').isVisible().catch(() => false), 12000);
-  await page.click('[data-testid="login-button"]');
-  await waitFor(() => page.locator('[data-testid="dock"]').isVisible().catch(() => false));
+  await loginToDesktop(page);
   const dimAfter = await page.locator('[data-testid="brightness-overlay"]').getAttribute("data-brightness");
   check("brightness persists after reload (0.6)", dimAfter === "0.6", String(dimAfter));
   await page.click('[data-testid="menubar-control-center"]');
@@ -638,7 +677,7 @@ async function main() {
     manifest.format === "urukos-backup" && manifest.version === 1 && Array.isArray(manifest.nodes) && manifest.nodes.some((n) => n.name === "marker-p3.txt"),
   );
   await closeWin("settings");
-  await focusWindowViaMenu(page, /Terminal/);
+  await focusWindowViaMenu(page, /Uruk Shell/);
   await termType(page, "rm Documents/marker-p3.txt");
   await termType(page, "clear");
   await termType(page, "ls Documents");
@@ -657,7 +696,7 @@ async function main() {
   }, 20000);
   check("backup: replace-restore completes", !!backupRestored, String(backupRestored));
   await closeWin("settings");
-  await focusWindowViaMenu(page, /Terminal/);
+  await focusWindowViaMenu(page, /Uruk Shell/);
   await termType(page, "cat Documents/marker-p3.txt");
   const catBack = await page.locator('[data-testid="terminal"]').innerText();
   check("backup: marker file is back with its content", catBack.includes("markerme"));
@@ -673,13 +712,240 @@ async function main() {
   await page.keyboard.press("a");
   const lockUp = await waitFor(() => page.locator('[data-testid="login-screen"]').isVisible().catch(() => false));
   check("screensaver: a keypress wakes to the lock screen", !!lockUp);
-  await page.click('[data-testid="login-button"]');
-  await waitFor(() => page.locator('[data-testid="dock"]').isVisible().catch(() => false));
+  await loginToDesktop(page);
   await page.click('[data-testid="dock-icon-settings"]');
   await waitFor(() => page.locator('[data-testid="window-settings"]').isVisible().catch(() => false));
   await page.click('[data-testid="settings-pane-system"]');
   await page.selectOption('[data-testid="settings-idle-timeout"]', "0");
   await closeWin("settings");
+
+  /* ================= Phase 4A ================= */
+
+  console.log("— phase 4a: proxy API (real sites, SSRF guard) —");
+  const pxRes = await fetch(`${BASE}/api/proxy?url=${encodeURIComponent("https://example.org")}`);
+  const pxBody = await pxRes.text();
+  check("proxy: example.org returns 200", pxRes.status === 200, String(pxRes.status));
+  check("proxy: example.org body contains 'Example Domain'", pxBody.includes("Example Domain"));
+  check("proxy: page URLs are rewritten back through /api/proxy", pxBody.includes("/api/proxy?url="));
+  const pxWiki = await fetch(`${BASE}/api/proxy?url=${encodeURIComponent("https://en.wikipedia.org/wiki/Uruk")}`);
+  const pxWikiBody = await pxWiki.text();
+  check(
+    "proxy: en.wikipedia.org/wiki/Uruk returns 200 with its real title",
+    pxWiki.status === 200 && pxWikiBody.includes("Uruk - Wikipedia"),
+    String(pxWiki.status),
+  );
+  const pxSsrf = await fetch(`${BASE}/api/proxy?url=${encodeURIComponent(`${BASE}/fixtures/page.html`)}`);
+  check("proxy: loopback target is refused (SSRF guard)", pxSsrf.status === 403, String(pxSsrf.status));
+  const pxScheme = await fetch(`${BASE}/api/proxy?url=${encodeURIComponent("file:///etc/passwd")}`);
+  check("proxy: non-http(s) scheme is refused", pxScheme.status === 403, String(pxScheme.status));
+
+  console.log("— phase 4a: browser renders real proxied pages —");
+  await page.click('[data-testid="dock-icon-browser"]');
+  const pBrowserUp = await waitFor(() => page.locator('[data-testid="window-browser"]').isVisible().catch(() => false));
+  check("proxy: browser opens", !!pBrowserUp);
+  await page.click('[data-testid="browser-address"]');
+  await page.fill('[data-testid="browser-address"]', "https://example.org");
+  await page.keyboard.press("Enter");
+  const exP = await waitFor(async () => {
+    // example.org's current page is a <title> + one paragraph (no <h1>).
+    const t = await page.frameLocator('[data-testid="browser-frame"]').locator("p").first().textContent().catch(() => "");
+    return t && t.includes("documentation examples") ? t : null;
+  }, 25000);
+  check("proxy: example.org renders inside the OS browser", !!exP);
+  await page.click('[data-testid="browser-address"]');
+  await page.fill('[data-testid="browser-address"]', "en.wikipedia.org/wiki/Uruk");
+  await page.keyboard.press("Enter");
+  const wikiH1 = await waitFor(async () => {
+    const t = await page.frameLocator('[data-testid="browser-frame"]').locator("#firstHeading").textContent().catch(() => "");
+    return t && t.includes("Uruk") ? t : null;
+  }, 30000);
+  check("proxy: Wikipedia's Uruk article renders inside the OS browser", !!wikiH1);
+  const addrAfter = await page.locator('[data-testid="browser-address"]').inputValue();
+  check(
+    "proxy: address bar tracks in-frame navigation with the real URL",
+    addrAfter.includes("wikipedia.org/wiki/Uruk"),
+    addrAfter,
+  );
+  await page.waitForTimeout(2500); // let the proxied stylesheets paint
+  await page.screenshot({ path: path.join(SHOTS, "21-browser-wikipedia.png") });
+  await closeWin("browser");
+
+  console.log("— phase 4a: dock auto-hide with a maximized window —");
+  await page.click('[data-testid="dock-icon-terminal"]');
+  await waitFor(() => page.locator('[data-testid="window-terminal"]').isVisible().catch(() => false));
+  const termWin4 = page.locator('[data-testid="window-terminal"]');
+  await termWin4.getByLabel("Zoom").click();
+  await page.waitForTimeout(500);
+  const dockBoxHidden = await page.locator('[data-testid="dock"]').boundingBox();
+  check(
+    "dock: slides off-screen while a window is maximized",
+    !!dockBoxHidden && dockBoxHidden.y >= 900,
+    JSON.stringify(dockBoxHidden),
+  );
+  await page.screenshot({ path: path.join(SHOTS, "22-maximized-dock-hidden.png") });
+  await page.mouse.move(720, 898);
+  await page.waitForTimeout(500);
+  const dockBoxShown = await page.locator('[data-testid="dock"]').boundingBox();
+  check(
+    "dock: bottom-edge hover floats it back",
+    !!dockBoxShown && dockBoxShown.y < 900,
+    JSON.stringify(dockBoxShown),
+  );
+  await page.screenshot({ path: path.join(SHOTS, "23-maximized-dock-revealed.png") });
+  await page.mouse.move(720, 400);
+  await page.waitForTimeout(500);
+  const dockBoxHidden2 = await page.locator('[data-testid="dock"]').boundingBox();
+  check(
+    "dock: moving away hides it again",
+    !!dockBoxHidden2 && dockBoxHidden2.y >= 900,
+    JSON.stringify(dockBoxHidden2),
+  );
+  await termWin4.getByLabel("Zoom").click();
+  await page.waitForTimeout(400);
+  const dockBoxRestored = await page.locator('[data-testid="dock"]').boundingBox();
+  check(
+    "dock: visible again once nothing is maximized",
+    !!dockBoxRestored && dockBoxRestored.y < 900,
+    JSON.stringify(dockBoxRestored),
+  );
+  await closeWin("terminal");
+
+  console.log("— phase 4a: accounts (create, isolate, switch, PIN, guest) —");
+  const logOut = async () => {
+    await page.click('[data-testid="menubar-user"]');
+    await page.getByRole("button", { name: /Log Out/ }).click();
+    const back = await waitFor(() => page.locator('[data-testid="login-screen"]').isVisible().catch(() => false), 15000);
+    if (!back) throw new Error("logout did not return to the login screen");
+  };
+  const pickAccount = async (name) => {
+    await page.locator(`[data-account-name="${name}"]`).click();
+    await page.waitForTimeout(300);
+  };
+
+  await logOut();
+  check(
+    "accounts: logout returns to the picker (Mustafa listed)",
+    await page.locator('[data-account-name="Mustafa"]').isVisible().catch(() => false),
+  );
+  await page.click('[data-testid="login-create-toggle"]');
+  const createUp = await waitFor(() => page.locator('[data-testid="account-name-input"]').isVisible().catch(() => false));
+  check("accounts: create form opens from the picker", !!createUp);
+  await page.fill('[data-testid="account-name-input"]', "Layla");
+  await page.click('[data-testid="account-color-2"]');
+  await page.click('[data-testid="account-glyph-1"]');
+  await page.fill('[data-testid="account-pin-input"]', "1357");
+  await page.click('[data-testid="account-create-submit"]');
+  const bDesktop = await waitFor(() => page.locator('[data-testid="dock"]').isVisible().catch(() => false), 20000);
+  check("accounts: creating account B logs straight into B's desktop", !!bDesktop);
+  await page.click('[data-testid="dock-icon-terminal"]');
+  await waitFor(() => page.locator('[data-testid="window-terminal"]').isVisible().catch(() => false));
+  await termType(page, 'echo "layla-secret" > Documents/marker-b.txt');
+  await page.click('[data-testid="dock-icon-settings"]');
+  await waitFor(() => page.locator('[data-testid="window-settings"]').isVisible().catch(() => false));
+  check(
+    "accounts: Settings header shows B's name",
+    ((await page.locator('[data-testid="settings-user-name"]').innerText().catch(() => "")) ?? "").includes("Layla"),
+  );
+  await page.click('[data-testid="settings-pane-wallpaper"]');
+  await page.click('[data-testid="settings-wallpaper-rivers"]');
+  await page.waitForTimeout(400);
+  const bWp = await page.locator('[data-testid="active-wallpaper"]').getAttribute("data-wallpaper-id").catch(() => null);
+  check("accounts: B's wallpaper applied (rivers)", bWp === "rivers", String(bWp));
+  await closeWin("settings");
+  await closeWin("terminal");
+
+  await logOut();
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: path.join(SHOTS, "20-accounts-login.png") });
+  await pickAccount("Mustafa");
+  await page.click('[data-testid="login-button"]');
+  const aDesktop = await waitFor(() => page.locator('[data-testid="dock"]').isVisible().catch(() => false), 20000);
+  check("accounts: switching back to A reaches A's desktop", !!aDesktop);
+  await page.click('[data-testid="dock-icon-terminal"]');
+  await waitFor(() => page.locator('[data-testid="window-terminal"]').isVisible().catch(() => false));
+  await termType(page, "ls Documents");
+  const aLs = await page.locator('[data-testid="terminal"]').innerText();
+  check("accounts: B's marker file is INVISIBLE inside A", !aLs.includes("marker-b"), aLs.slice(-200));
+  check("accounts: A's own files are still there", aLs.includes("a.txt"));
+  const aCustomWp = await page.locator('[data-testid="custom-wallpaper-img"]').count();
+  const aWpId = await page.locator('[data-testid="active-wallpaper"]').getAttribute("data-wallpaper-id").catch(() => null);
+  check(
+    "accounts: A's wallpaper is A's own (not B's rivers)",
+    aCustomWp > 0 || (aWpId !== null && aWpId !== "rivers"),
+    `custom=${aCustomWp} wp=${String(aWpId)}`,
+  );
+  await closeWin("terminal");
+
+  await logOut();
+  await pickAccount("Layla");
+  const bPinPrompt = await waitFor(() => page.locator('[data-testid="login-pin-input"]').isVisible().catch(() => false));
+  check("accounts: B's card asks for B's PIN", !!bPinPrompt);
+  await page.fill('[data-testid="login-pin-input"]', "9999");
+  await page.click('[data-testid="login-pin-submit"]');
+  const bPinErr = await waitFor(() => page.locator('[data-testid="login-pin-error"]').isVisible().catch(() => false));
+  check("accounts: wrong PIN for B is rejected", !!bPinErr);
+  await page.fill('[data-testid="login-pin-input"]', "1357");
+  await page.click('[data-testid="login-pin-submit"]');
+  const bBack = await waitFor(() => page.locator('[data-testid="dock"]').isVisible().catch(() => false), 20000);
+  check("accounts: correct PIN logs B back in", !!bBack);
+  await page.click('[data-testid="dock-icon-terminal"]');
+  await waitFor(() => page.locator('[data-testid="window-terminal"]').isVisible().catch(() => false));
+  await termType(page, "cat Documents/marker-b.txt");
+  const bCat = await page.locator('[data-testid="terminal"]').innerText();
+  check("accounts: B's marker + content intact after the round trip", bCat.includes("layla-secret"));
+  const bWp2 = await page.locator('[data-testid="active-wallpaper"]').getAttribute("data-wallpaper-id").catch(() => null);
+  check("accounts: B's wallpaper intact after the round trip (rivers)", bWp2 === "rivers", String(bWp2));
+  await closeWin("terminal");
+
+  await logOut();
+  await page.click('[data-testid="login-guest"]');
+  const gDesktop = await waitFor(() => page.locator('[data-testid="dock"]').isVisible().catch(() => false), 20000);
+  check("guest: guest mode reaches its own desktop", !!gDesktop);
+  await page.click('[data-testid="dock-icon-settings"]');
+  await waitFor(() => page.locator('[data-testid="window-settings"]').isVisible().catch(() => false));
+  check(
+    "guest: Settings labels the space as Guest",
+    ((await page.locator('[data-testid="settings-user-name"]').innerText().catch(() => "")) ?? "").includes("Guest"),
+  );
+  await closeWin("settings");
+  await page.click('[data-testid="dock-icon-terminal"]');
+  await waitFor(() => page.locator('[data-testid="window-terminal"]').isVisible().catch(() => false));
+  await termType(page, "ls Documents");
+  const gLs = await page.locator('[data-testid="terminal"]').innerText();
+  check(
+    "guest: sees neither account's files (no a.txt, no marker-b)",
+    !gLs.includes("a.txt") && !gLs.includes("marker-b"),
+    gLs.slice(-200),
+  );
+  check("guest: guest space has its own seeded Welcome.txt", gLs.includes("Welcome.txt"));
+  await closeWin("terminal");
+  await logOut();
+  await pickAccount("Mustafa");
+  await page.click('[data-testid="login-button"]');
+  await waitFor(() => page.locator('[data-testid="dock"]').isVisible().catch(() => false), 20000);
+  check("accounts: suite ends signed in as A", true);
+
+  console.log("— phase 4b: identity (new names + icons) —");
+  const activeAppName = await page.locator('[data-testid="menubar-active-app"]').innerText();
+  check("identity: menu bar shows 'Uruk Files' as the default app", activeAppName.trim() === "Uruk Files", activeAppName);
+  await page.click('[data-testid="dock-icon-launchpad"]');
+  const plazaUp = await waitFor(() => page.locator('[data-testid="launchpad"]').isVisible().catch(() => false));
+  check("identity: Plaza opens from the Dock", !!plazaUp);
+  const plazaText = await page.locator('[data-testid="launchpad"]').innerText();
+  check(
+    "identity: Plaza grid carries the new names (Ishtar Gate, Ukkin, Tablet, Nanna)",
+    plazaText.includes("Ishtar Gate") && plazaText.includes("Ukkin") && plazaText.includes("Tablet") && plazaText.includes("Nanna"),
+    plazaText.slice(0, 200),
+  );
+  await page.click('[data-testid="launchpad-app-editor"]');
+  const scribeUp = await waitFor(() => page.locator('[data-testid="window-editor"]').isVisible().catch(() => false));
+  check("identity: Plaza launches Scribe (the editor app)", !!scribeUp);
+  const scribeTitle = await page.locator('[data-testid="window-editor"]').innerText();
+  check("identity: the editor window is titled Scribe", scribeTitle.includes("Scribe"), scribeTitle.slice(0, 80));
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: path.join(SHOTS, "24-scribe.png") });
+  await closeWin("editor");
+  await page.screenshot({ path: path.join(SHOTS, "25-desktop-identity.png") });
 
   await browser.close();
   server.kill();

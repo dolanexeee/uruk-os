@@ -7,6 +7,7 @@ import {
   type NodeMap,
 } from "./fs";
 import { useOS } from "@/store/os";
+import { getActiveAccountId, settingsKeyFor, systemKeyFor } from "./accounts";
 import { useSystem } from "@/store/system";
 
 /**
@@ -42,8 +43,8 @@ export interface BackupData {
   settings: BackupSettings;
 }
 
-const OS_SETTINGS_KEY = "uruk-os-settings-v1";
-const SYSTEM_PREFS_KEY = "uruk-os-system-v1";
+const osSettingsKey = () => settingsKeyFor(getActiveAccountId());
+const systemPrefsKey = () => systemKeyFor(getActiveAccountId());
 
 /* ------------------------------------------------------------------ */
 /* Collect                                                             */
@@ -75,7 +76,7 @@ export async function collectBackup(): Promise<BackupData> {
     createdAt: Date.now(),
     nodes: list.map(stripNode),
     blobs,
-    settings: { os: read(OS_SETTINGS_KEY), system: read(SYSTEM_PREFS_KEY) },
+    settings: { os: read(osSettingsKey()), system: read(systemPrefsKey()) },
   };
 }
 
@@ -207,7 +208,7 @@ function materialize(data: BackupData): FSNode[] {
 function applySettings(settings: BackupSettings) {
   if (settings.os) {
     try {
-      localStorage.setItem(OS_SETTINGS_KEY, JSON.stringify(settings.os));
+      localStorage.setItem(osSettingsKey(), JSON.stringify(settings.os));
     } catch {
       /* ignore */
     }

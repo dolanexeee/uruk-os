@@ -281,7 +281,7 @@ export default function Finder({ win }: { win: WinState }) {
         </div>
         {FAVORITES.map((name) => sidebarItem(folderByName(nodes, name), name))}
         <div className="mt-auto">
-          {sidebarItem(nodes[TRASH_ID], "Trash")}
+          {sidebarItem(nodes[TRASH_ID], "Shard")}
           <div className="px-2 pb-1 pt-2 text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">
             <div className="font-semibold text-neutral-600 dark:text-neutral-300">Storage</div>
             <div data-testid="finder-storage">{storageText}</div>
@@ -356,7 +356,7 @@ export default function Finder({ win }: { win: WinState }) {
                 className="rounded-md border border-red-300 px-2.5 py-1 text-[13px] text-red-600 dark:border-red-500/40 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
                 onClick={() => void fs().emptyTrash()}
               >
-                Empty Trash
+                Empty Shard
               </button>
             )}
           </div>

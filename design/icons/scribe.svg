@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9C6A38"/>
+      <stop offset="1" stop-color="#6B4423"/>
+    </linearGradient>
+    <linearGradient id="cream" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F7ECD2"/>
+      <stop offset="1" stop-color="#EAD9AE"/>
+    </linearGradient>
+    <linearGradient id="bronze" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#C99A5F"/>
+      <stop offset="1" stop-color="#8F6234"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="88" height="88" rx="20" fill="url(#ground)"/>
+  <rect x="4.75" y="4.75" width="86.5" height="86.5" rx="19.25" fill="none" stroke="#F6D67C" stroke-opacity="0.2" stroke-width="1.5"/>
+  <!-- clay writing tablet -->
+  <rect x="22" y="17" width="42" height="62" rx="7" fill="url(#cream)"/>
+  <rect x="27" y="22" width="32" height="52" rx="4" fill="none" stroke="#B0814A" stroke-opacity="0.55" stroke-width="1.6"/>
+  <!-- wedge rows pressed into the clay -->
+  <g fill="#8F6234">
+    <path d="M31 30 L41 33 L31 36 Z"/>
+    <path d="M45 30 L48 39 L42 39 Z"/>
+    <path d="M51 30 L59 33 L51 36 Z"/>
+    <path d="M31 44 L39 47 L31 50 Z"/>
+    <path d="M43 44 L46 53 L40 53 Z"/>
+    <path d="M50 44 L60 47 L50 50 Z"/>
+    <path d="M31 58 L41 61 L31 64 Z"/>
+    <path d="M45 58 L48 67 L42 67 Z"/>
+  </g>
+  <!-- reed stylus, laid diagonally across the tablet -->
+  <g transform="rotate(38 66 52)">
+    <rect x="61" y="24" width="9" height="52" rx="4.5" fill="url(#bronze)"/>
+    <path d="M61 71 L70 71 L65.5 80 Z" fill="#F6D67C"/>
+    <rect x="61" y="33" width="9" height="4" fill="#6B4423" opacity="0.55"/>
+  </g>
+</svg>

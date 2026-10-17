@@ -66,7 +66,7 @@ export default function Photos({ win }: { win: WinState }) {
   }, [win.props.fileId]);
 
   useEffect(() => {
-    os.setWindowTitle(win.id, viewing ? viewing.name : "Photos");
+    os.setWindowTitle(win.id, viewing ? viewing.name : "Shamash Gallery");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewing?.name, win.id]);
 
@@ -120,7 +120,7 @@ export default function Photos({ win }: { win: WinState }) {
               action: () => os.setCustomWallpaper(viewing.id),
             },
             {
-              label: "Open in Preview",
+              label: "Open in Shamash Eye",
               action: () => os.openApp("preview", { fileId: viewing.id }, viewing.name),
             },
           ]

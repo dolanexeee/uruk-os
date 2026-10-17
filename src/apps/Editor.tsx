@@ -46,7 +46,7 @@ export default function Editor({ win }: { win: WinState }) {
   /* window title with dirty dot */
   useEffect(() => {
     if (node) os.setWindowTitle(win.id, `${dirty ? "● " : ""}${node.name}`);
-    else os.setWindowTitle(win.id, "Editor");
+    else os.setWindowTitle(win.id, "Scribe");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node?.name, dirty, win.id]);
 
