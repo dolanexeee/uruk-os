@@ -4,7 +4,19 @@ import { TRASH_ID, childrenOf, useFS } from "@/lib/fs";
 import { AppIcon, TrashIcon } from "./icons";
 import ContextMenu, { useContextMenu, type MenuEntry } from "./ContextMenu";
 
-const DOCK_APPS: AppId[] = ["finder", "terminal", "editor", "settings"];
+const DOCK_APPS: AppId[] = [
+  "finder",
+  "photos",
+  "browser",
+  "terminal",
+  "editor",
+  "code",
+  "notes",
+  "calculator",
+  "calendar",
+  "music",
+  "settings",
+];
 const BASE = 52;
 const MAG_RANGE = 115;
 const MAG_MAX = 0.5;

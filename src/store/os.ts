@@ -1,6 +1,18 @@
 import { create } from "zustand";
 
-export type AppId = "finder" | "terminal" | "editor" | "settings";
+export type AppId =
+  | "finder"
+  | "terminal"
+  | "editor"
+  | "settings"
+  | "photos"
+  | "preview"
+  | "notes"
+  | "calculator"
+  | "calendar"
+  | "music"
+  | "browser"
+  | "code";
 export type Phase = "boot" | "login" | "desktop";
 export type Appearance = "light" | "dark";
 
@@ -40,6 +52,14 @@ export const APP_NAMES: Record<AppId, string> = {
   terminal: "Terminal",
   editor: "Editor",
   settings: "Settings",
+  photos: "Photos",
+  preview: "Preview",
+  notes: "Notes",
+  calculator: "Calculator",
+  calendar: "Calendar",
+  music: "Music",
+  browser: "URUK Browser",
+  code: "Uruk Code",
 };
 
 const DEFAULT_RECTS: Record<AppId, { w: number; h: number }> = {
@@ -47,7 +67,27 @@ const DEFAULT_RECTS: Record<AppId, { w: number; h: number }> = {
   terminal: { w: 660, h: 430 },
   editor: { w: 720, h: 540 },
   settings: { w: 780, h: 560 },
+  photos: { w: 900, h: 580 },
+  preview: { w: 760, h: 560 },
+  notes: { w: 820, h: 540 },
+  calculator: { w: 340, h: 520 },
+  calendar: { w: 900, h: 580 },
+  music: { w: 780, h: 540 },
+  browser: { w: 980, h: 620 },
+  code: { w: 940, h: 620 },
 };
+
+/** Apps that exist as a single window; re-opening focuses + merges props. */
+export const SINGLE_INSTANCE: ReadonlySet<AppId> = new Set([
+  "settings",
+  "photos",
+  "notes",
+  "calculator",
+  "calendar",
+  "music",
+  "browser",
+  "code",
+]);
 
 export const ACCENTS = [
   { name: "Blue", value: "#0a84ff" },
@@ -62,6 +102,8 @@ interface Settings {
   appearance: Appearance;
   accent: string;
   wallpaper: string;
+  /** FS node id of a user photo used as wallpaper (Photos → Set as Wallpaper). */
+  customWallpaperId: string | null;
 }
 
 const SETTINGS_KEY = "uruk-os-settings-v1";
@@ -69,6 +111,7 @@ const DEFAULT_SETTINGS: Settings = {
   appearance: "dark",
   accent: "#0a84ff",
   wallpaper: "ziggurat",
+  customWallpaperId: null,
 };
 
 function loadSettings(): Settings {
@@ -118,6 +161,7 @@ interface OSStore extends Settings {
   setAppearance: (a: Appearance) => void;
   setAccent: (a: string) => void;
   setWallpaper: (w: string) => void;
+  setCustomWallpaper: (nodeId: string | null) => void;
 }
 
 let winCounter = 0;
@@ -142,9 +186,9 @@ export const useOS = create<OSStore>((set, get) => {
 
     openApp: (app, props = {}, title) => {
       const state = get();
-      // Settings is single-instance (like the real thing).
-      if (app === "settings") {
-        const existing = state.windows.find((w) => w.app === "settings");
+      // Single-instance apps (Settings, Photos, Music, …) focus instead of duplicating.
+      if (SINGLE_INSTANCE.has(app)) {
+        const existing = state.windows.find((w) => w.app === app);
         if (existing) {
           set({
             windows: state.windows.map((w) =>
@@ -293,19 +337,45 @@ export const useOS = create<OSStore>((set, get) => {
     setFileMenuItems: (items) => set({ fileMenuItems: items }),
 
     setAppearance: (appearance) => {
-      const s = { appearance, accent: get().accent, wallpaper: get().wallpaper };
+      const s = {
+        appearance,
+        accent: get().accent,
+        wallpaper: get().wallpaper,
+        customWallpaperId: get().customWallpaperId,
+      };
       saveSettings(s);
       set({ appearance });
     },
     setAccent: (accent) => {
-      const s = { appearance: get().appearance, accent, wallpaper: get().wallpaper };
+      const s = {
+        appearance: get().appearance,
+        accent,
+        wallpaper: get().wallpaper,
+        customWallpaperId: get().customWallpaperId,
+      };
       saveSettings(s);
       set({ accent });
     },
     setWallpaper: (wallpaper) => {
-      const s = { appearance: get().appearance, accent: get().accent, wallpaper };
+      // Choosing a built-in wallpaper clears any custom photo wallpaper.
+      const s = {
+        appearance: get().appearance,
+        accent: get().accent,
+        wallpaper,
+        customWallpaperId: null,
+      };
       saveSettings(s);
-      set({ wallpaper });
+      set({ wallpaper, customWallpaperId: null });
+    },
+    setCustomWallpaper: (customWallpaperId) => {
+      const s = {
+        appearance: get().appearance,
+        accent: get().accent,
+        wallpaper: get().wallpaper,
+        customWallpaperId,
+      };
+      saveSettings(s);
+      set({ customWallpaperId });
     },
   };
 });

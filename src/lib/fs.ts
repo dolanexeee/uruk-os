@@ -470,6 +470,21 @@ export const useFS = create<FSStore>((set, get) => ({
   },
 }));
 
+/** Find a top-level home folder by name. */
+export function homeFolder(nodes: NodeMap, name: string): FSNode | undefined {
+  return Object.values(nodes).find((n) => n.parentId === ROOT_ID && n.name === name && n.type === "folder");
+}
+
+/**
+ * Return the top-level home folder called `name`, creating it on first use.
+ * Used by apps that own a folder (Notes, Calendar, Music, …).
+ */
+export async function ensureHomeFolder(name: string): Promise<FSNode> {
+  const existing = homeFolder(useFS.getState().nodes, name);
+  if (existing) return existing;
+  return useFS.getState().createFolder(ROOT_ID, name);
+}
+
 /** Format bytes for Finder "Get Info" / storage readouts. */
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;

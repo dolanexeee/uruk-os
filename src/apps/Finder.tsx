@@ -11,6 +11,7 @@ import {
   type FSNode,
 } from "@/lib/fs";
 import { useOS, type WinState } from "@/store/os";
+import { openFileNode } from "@/lib/associations";
 import ContextMenu, { useContextMenu, type MenuEntry } from "@/components/ContextMenu";
 import { FileIcon, FolderIcon } from "@/components/icons";
 
@@ -119,15 +120,11 @@ export default function Finder({ win }: { win: WinState }) {
         navigate(node.id);
         return;
       }
-      if (isTextLike(node.name, node.mime)) {
-        os.openApp("editor", { fileId: node.id }, node.name);
-        return;
-      }
-      if (node.mime.startsWith("image/") && node.blob) {
+      // Files route through the shared associations registry; anything no
+      // app claims falls back to the Get Info panel, as before.
+      if (openFileNode(node) === "info") {
         setInfo({ node });
-        return;
       }
-      setInfo({ node });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [navigate],

@@ -138,7 +138,7 @@ export default function Settings({ win }: { win: WinState }) {
                     data-testid={`settings-wallpaper-${w.id}`}
                     onClick={() => os.setWallpaper(w.id)}
                     className={`overflow-hidden rounded-xl border-2 text-left ${
-                      os.wallpaper === w.id
+                      os.wallpaper === w.id && !os.customWallpaperId
                         ? "border-[var(--accent)]"
                         : "border-black/10 dark:border-white/10"
                     }`}
@@ -148,7 +148,9 @@ export default function Settings({ win }: { win: WinState }) {
                     </div>
                     <div className="bg-neutral-50 px-2.5 py-1.5 text-[12.5px] dark:bg-neutral-800">
                       {w.name}
-                      {os.wallpaper === w.id && <span className="float-right text-[var(--accent)]">✓</span>}
+                      {os.wallpaper === w.id && !os.customWallpaperId && (
+                        <span className="float-right text-[var(--accent)]">✓</span>
+                      )}
                     </div>
                   </button>
                 );
@@ -157,6 +159,23 @@ export default function Settings({ win }: { win: WinState }) {
             <p className="mt-3 text-[12px] text-neutral-500 dark:text-neutral-400">
               All five wallpapers are original vector artwork drawn for URUK OS.
             </p>
+            {os.customWallpaperId && (
+              <div
+                data-testid="settings-wallpaper-custom"
+                className="mt-3 flex items-center gap-2 rounded-lg bg-[var(--accent)]/10 px-3 py-2 text-[12.5px]"
+              >
+                <span>
+                  A photo from your library is currently set as the
+                  wallpaper (pick any wallpaper above to switch back).
+                </span>
+                <button
+                  className="ml-auto shrink-0 rounded-md bg-[var(--accent)] px-2.5 py-1 font-medium text-white"
+                  onClick={() => os.setCustomWallpaper(null)}
+                >
+                  Clear
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -167,7 +186,7 @@ export default function Settings({ win }: { win: WinState }) {
             </div>
             <div className="text-[22px] font-bold tracking-tight">URUK OS</div>
             <div className="mb-5 text-[13px] text-neutral-500 dark:text-neutral-400">
-              Version 0.1.0 · Browser build
+              Version 0.2.0 · Browser build
             </div>
             <dl className="w-full max-w-sm space-y-2 text-left text-[13px]">
               <div className="flex justify-between border-b border-black/5 pb-1.5 dark:border-white/5">

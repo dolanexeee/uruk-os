@@ -198,6 +198,182 @@ export function FileIcon({ size = 48, image = false, className }: IconProps & { 
   );
 }
 
+export function PhotosIcon({ size = 48, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <defs>
+        <linearGradient id="ic-photos" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="1" stopColor="#e3e6ec" />
+        </linearGradient>
+      </defs>
+      <rect x="6" y="6" width="52" height="52" rx="12" fill="url(#ic-photos)" stroke="#c3c6cf" />
+      {/* eight-petal bloom, drawn from rotated ellipses */}
+      <g opacity="0.92">
+        {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => (
+          <ellipse
+            key={deg}
+            cx="32"
+            cy="21.5"
+            rx="5.4"
+            ry="10.5"
+            fill={["#f5a623", "#f2664d", "#e84f9a", "#9b59d0", "#4f7fe8", "#38b2a6", "#7bc950", "#e8c832"][i]}
+            transform={`rotate(${deg} 32 32)`}
+          />
+        ))}
+      </g>
+      <circle cx="32" cy="32" r="4.6" fill="#ffffff" stroke="#c3c6cf" strokeWidth="0.8" />
+    </svg>
+  );
+}
+
+export function PreviewIcon({ size = 48, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <defs>
+        <linearGradient id="ic-preview" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fdfdfd" />
+          <stop offset="1" stopColor="#dde1e8" />
+        </linearGradient>
+      </defs>
+      <rect x="9" y="7" width="46" height="50" rx="6" fill="url(#ic-preview)" stroke="#b9bdc7" />
+      <rect x="14" y="12" width="36" height="26" rx="3" fill="#bfe0f7" />
+      <circle cx="23" cy="19" r="3.4" fill="#f5a623" />
+      <polygon points="14,38 27,26 35,33 40,28.6 50,36 50,38" fill="#3f9be0" />
+      <circle cx="40" cy="44" r="8.6" fill="none" stroke="#5b6270" strokeWidth="3" />
+      <line x1="46.4" y1="50.4" x2="53" y2="57" stroke="#5b6270" strokeWidth="3.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function NotesIcon({ size = 48, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <defs>
+        <linearGradient id="ic-notes" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="1" stopColor="#f2f3f5" />
+        </linearGradient>
+      </defs>
+      <rect x="11" y="5" width="42" height="54" rx="7" fill="url(#ic-notes)" stroke="#c9ccd4" />
+      <path d="M11 12 a7 7 0 0 1 7 -7 h28 a7 7 0 0 1 7 7 v7 H11 Z" fill="#f7ce46" />
+      <g stroke="#a8adb8" strokeWidth="2.1" strokeLinecap="round">
+        <line x1="18" y1="28" x2="46" y2="28" />
+        <line x1="18" y1="35.5" x2="46" y2="35.5" />
+        <line x1="18" y1="43" x2="38" y2="43" />
+        <line x1="18" y1="50.5" x2="42" y2="50.5" />
+      </g>
+    </svg>
+  );
+}
+
+export function CalculatorIcon({ size = 48, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <defs>
+        <linearGradient id="ic-calc" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#48484e" />
+          <stop offset="1" stopColor="#1c1c1f" />
+        </linearGradient>
+      </defs>
+      <rect x="13" y="4" width="38" height="56" rx="9" fill="url(#ic-calc)" stroke="#000" strokeOpacity="0.45" />
+      <rect x="18.5" y="9.5" width="27" height="11" rx="3" fill="#cfe8c9" />
+      <g>
+        {[0, 1, 2].map((r) =>
+          [0, 1, 2, 3].map((c) => (
+            <circle
+              key={`${r}-${c}`}
+              cx={21.5 + c * 7.4}
+              cy={28.5 + r * 9.6}
+              r="3.1"
+              fill={c === 3 ? "#f5a623" : "#e8e9ee"}
+              opacity={c === 3 ? 1 : 0.88}
+            />
+          )),
+        )}
+      </g>
+    </svg>
+  );
+}
+
+export function CalendarIcon({ size = 48, className }: IconProps) {
+  const day = new Date().getDate();
+  const weekday = new Date().toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+  return (
+    <svg {...base(size)} className={className}>
+      <defs>
+        <linearGradient id="ic-cal" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="1" stopColor="#eceef2" />
+        </linearGradient>
+      </defs>
+      <rect x="8" y="8" width="48" height="48" rx="10" fill="url(#ic-cal)" stroke="#c3c6cf" />
+      <text x="32" y="24" textAnchor="middle" fontSize="10.5" fontWeight="700" fill="#e0342b" fontFamily="inherit" letterSpacing="1">
+        {weekday}
+      </text>
+      <text x="32" y="51" textAnchor="middle" fontSize="27" fontWeight="600" fill="#26262b" fontFamily="inherit">
+        {day}
+      </text>
+    </svg>
+  );
+}
+
+export function MusicIcon({ size = 48, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <defs>
+        <linearGradient id="ic-music" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fc6a5e" />
+          <stop offset="1" stopColor="#d61f4b" />
+        </linearGradient>
+      </defs>
+      <rect x="6" y="6" width="52" height="52" rx="12" fill="url(#ic-music)" />
+      <path
+        d="M40 15.5 v19.6 a8.4 6.4 0 1 1 -3.4 -5.5 V24 L27 26.6 v16.2 a8.4 6.4 0 1 1 -3.4 -5.5 V20.2 Z"
+        fill="#ffffff"
+      />
+    </svg>
+  );
+}
+
+export function BrowserIcon({ size = 48, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <defs>
+        <linearGradient id="ic-compass" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fdfdfd" />
+          <stop offset="1" stopColor="#dfe3ea" />
+        </linearGradient>
+      </defs>
+      <circle cx="32" cy="32" r="26" fill="url(#ic-compass)" stroke="#b6bbc6" />
+      <circle cx="32" cy="32" r="22.5" fill="none" stroke="#d3d7de" strokeWidth="1" />
+      <polygon points="32,15 37.5,32 32,49 26.5,32" fill="#e0342b" />
+      <polygon points="15,32 32,26.5 49,32 32,37.5" fill="#8f96a3" />
+      <circle cx="32" cy="32" r="3" fill="#ffffff" stroke="#9aa0ae" strokeWidth="1.2" />
+    </svg>
+  );
+}
+
+export function CodeIcon({ size = 48, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <defs>
+        <linearGradient id="ic-code" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#2e3440" />
+          <stop offset="1" stopColor="#171a21" />
+        </linearGradient>
+      </defs>
+      <rect x="6" y="8" width="52" height="48" rx="9" fill="url(#ic-code)" stroke="#000" strokeOpacity="0.4" />
+      <rect x="6" y="8" width="52" height="11" rx="5.5" fill="#ffffff" opacity="0.08" />
+      <g strokeWidth="3.6" fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M24 27 l-8 6 l8 6" stroke="#7ee787" />
+        <path d="M40 27 l8 6 l-8 6" stroke="#79c0ff" />
+        <line x1="35.5" y1="25" x2="28.5" y2="41" stroke="#f5a623" strokeWidth="3.2" />
+      </g>
+    </svg>
+  );
+}
+
 export function AppIcon({ app, size = 48, className }: { app: string; size?: number; className?: string }) {
   switch (app) {
     case "finder":
@@ -208,6 +384,22 @@ export function AppIcon({ app, size = 48, className }: { app: string; size?: num
       return <EditorIcon size={size} className={className} />;
     case "settings":
       return <SettingsIcon size={size} className={className} />;
+    case "photos":
+      return <PhotosIcon size={size} className={className} />;
+    case "preview":
+      return <PreviewIcon size={size} className={className} />;
+    case "notes":
+      return <NotesIcon size={size} className={className} />;
+    case "calculator":
+      return <CalculatorIcon size={size} className={className} />;
+    case "calendar":
+      return <CalendarIcon size={size} className={className} />;
+    case "music":
+      return <MusicIcon size={size} className={className} />;
+    case "browser":
+      return <BrowserIcon size={size} className={className} />;
+    case "code":
+      return <CodeIcon size={size} className={className} />;
     default:
       return <FileIcon size={size} className={className} />;
   }

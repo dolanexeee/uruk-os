@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useOS, type AppId } from "@/store/os";
-import { childrenOf, isTextLike, useFS, type FSNode } from "@/lib/fs";
+import { childrenOf, useFS, type FSNode } from "@/lib/fs";
 import { WallpaperById, WALLPAPERS } from "./wallpapers";
 import { FileIcon, FolderIcon, UrukMark } from "./icons";
 import MenuBar from "./MenuBar";
@@ -13,13 +13,65 @@ import Finder from "@/apps/Finder";
 import Terminal from "@/apps/Terminal";
 import Editor from "@/apps/Editor";
 import Settings from "@/apps/Settings";
+import Photos from "@/apps/Photos";
+import Preview from "@/apps/Preview";
+import Notes from "@/apps/Notes";
+import Calculator from "@/apps/Calculator";
+import Calendar from "@/apps/Calendar";
+import Music from "@/apps/Music";
+import BrowserApp from "@/apps/Browser";
+import Code from "@/apps/Code";
+import { openFileNode } from "@/lib/associations";
 
 const APP_COMPONENTS: Record<AppId, React.ComponentType<{ win: never }>> = {
   finder: Finder as never,
   terminal: Terminal as never,
   editor: Editor as never,
   settings: Settings as never,
+  photos: Photos as never,
+  preview: Preview as never,
+  notes: Notes as never,
+  calculator: Calculator as never,
+  calendar: Calendar as never,
+  music: Music as never,
+  browser: BrowserApp as never,
+  code: Code as never,
 };
+
+/* ------------------------------------------------------------------ */
+/* Active wallpaper (built-in scene OR a photo the user picked)        */
+/* ------------------------------------------------------------------ */
+
+export function ActiveWallpaper() {
+  const wallpaper = useOS((s) => s.wallpaper);
+  const customId = useOS((s) => s.customWallpaperId);
+  const node = useFS((s) => (customId ? s.nodes[customId] : undefined));
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!node?.blob) {
+      setUrl(null);
+      return;
+    }
+    const u = URL.createObjectURL(node.blob);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [node]);
+
+  if (customId && node?.blob && url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={url}
+        alt=""
+        data-testid="custom-wallpaper-img"
+        className="h-full w-full object-cover"
+        draggable={false}
+      />
+    );
+  }
+  return <WallpaperById id={wallpaper} />;
+}
 
 /* ------------------------------------------------------------------ */
 /* Boot                                                                */
@@ -62,7 +114,6 @@ function BootScreen() {
 
 function LoginScreen() {
   const login = useOS((s) => s.login);
-  const wallpaper = useOS((s) => s.wallpaper);
   const hasSession = useOS((s) => s.windows.length > 0);
 
   useEffect(() => {
@@ -80,7 +131,7 @@ function LoginScreen() {
       onClick={login}
     >
       <div className="absolute inset-0 scale-110 blur-md brightness-[0.82]">
-        <WallpaperById id={wallpaper} />
+        <ActiveWallpaper />
       </div>
       <div className="fade-in relative flex flex-col items-center">
         <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-b from-sky-400 to-blue-600 text-[38px] font-bold text-white shadow-2xl ring-2 ring-white/40">
@@ -119,11 +170,10 @@ function DesktopSurface() {
   const desktopItems = childrenOf(nodes, "folder-desktop");
 
   const openNode = (node: FSNode) => {
-    if (node.type === "folder") {
-      os.openApp("finder", { folderId: node.id }, node.name);
-    } else if (isTextLike(node.name, node.mime)) {
-      os.openApp("editor", { fileId: node.id }, node.name);
-    } else if (node.mime.startsWith("image/")) {
+    // All routing goes through the associations registry.
+    const result = openFileNode(node);
+    if (result === "info") {
+      // No app claims this file — surface it in Finder at its folder instead.
       os.openApp("finder", { folderId: node.parentId ?? "folder-desktop" });
     }
   };
@@ -210,7 +260,6 @@ export default function OSRoot() {
   const phase = useOS((s) => s.phase);
   const appearance = useOS((s) => s.appearance);
   const accent = useOS((s) => s.accent);
-  const wallpaper = useOS((s) => s.wallpaper);
   const windows = useOS((s) => s.windows);
   const loadFS = useFS((s) => s.load);
   const hydrateSettings = useOS((s) => s.hydrateSettings);
@@ -233,7 +282,7 @@ export default function OSRoot() {
       {phase === "desktop" && (
         <>
           <div className="absolute inset-0">
-            <WallpaperById id={wallpaper} />
+            <ActiveWallpaper />
           </div>
           <DesktopSurface />
           {windows.map((win) => {

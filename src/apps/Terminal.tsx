@@ -10,7 +10,8 @@ import {
   useFS,
   type FSNode,
 } from "@/lib/fs";
-import { useOS, type WinState } from "@/store/os";
+import { APP_NAMES, useOS, type AppId, type WinState } from "@/store/os";
+import { openFileNode } from "@/lib/associations";
 
 interface Line {
   text: string;
@@ -288,35 +289,45 @@ export default function Terminal({ win }: { win: WinState }) {
         return [];
       }
       case "open": {
-        const what = (args[0] ?? "").toLowerCase();
+        const target = args.join(" ");
+        if (!target) {
+          return [err("usage: open <finder|terminal|editor|settings|path>")];
+        }
+        // A real path wins over app shortcuts — `open Notes` in the home
+        // folder opens the Notes folder in Finder, like a real shell.
+        const id = resolvePath(n, cwdId, target);
+        if (id) {
+          const node = n[id];
+          // Folders → Finder; files → the shared associations registry.
+          if (openFileNode(node) === "info") {
+            return [out(`${node.name}: ${node.mime ?? "unknown type"}, ${node.size} bytes (no app associated)`)];
+          }
+          return [];
+        }
+        const what = target.toLowerCase().replace(/\s+/g, "");
         if (what === "finder") {
           os().openApp("finder", { folderId: cwdId });
           return [out("Opening Finder…")];
         }
-        if (what === "terminal") {
-          os().openApp("terminal");
-          return [out("Opening Terminal…")];
+        const appShortcuts: Record<string, AppId> = {
+          terminal: "terminal",
+          settings: "settings",
+          editor: "editor",
+          photos: "photos",
+          preview: "preview",
+          notes: "notes",
+          calculator: "calculator",
+          calendar: "calendar",
+          music: "music",
+          browser: "browser",
+          code: "code",
+        };
+        if (appShortcuts[what]) {
+          const app = appShortcuts[what];
+          os().openApp(app);
+          return [out(`Opening ${APP_NAMES[app]}…`)];
         }
-        if (what === "settings") {
-          os().openApp("settings");
-          return [out("Opening Settings…")];
-        }
-        if (what === "editor") {
-          os().openApp("editor");
-          return [out("Opening Editor…")];
-        }
-        if (args[0]) {
-          const id = resolvePath(n, cwdId, args[0]);
-          if (!id) return [err(`open: ${args[0]}: No such file or directory`)];
-          const node = n[id];
-          if (node.type === "folder") {
-            os().openApp("finder", { folderId: id }, node.name);
-          } else {
-            os().openApp("editor", { fileId: id }, node.name);
-          }
-          return [];
-        }
-        return [err("usage: open <finder|terminal|editor|settings|path>")];
+        return [err(`open: ${target}: No such file or directory`)];
       }
       case "urukfetch":
         return await urukfetch();
