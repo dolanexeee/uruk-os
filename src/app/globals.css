@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --accent: #0a84ff;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- scrollbars (thin, mac-like) ---------- */
+.uruk-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.uruk-scroll::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.45);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.uruk-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.uruk-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.45) transparent;
+}
+
+/* ---------- window animations ---------- */
+@keyframes uruk-window-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes uruk-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes uruk-boot-bar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes uruk-pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.window-opening {
+  animation: uruk-window-in 0.18s cubic-bezier(0.2, 0.9, 0.25, 1.2);
+}
+.window-closing {
+  transition:
+    opacity 0.15s ease-in,
+    transform 0.15s ease-in;
+  opacity: 0 !important;
+  transform: scale(0.96) translateY(8px) !important;
+}
+.window-minimizing {
+  transition:
+    opacity 0.22s ease-in,
+    transform 0.22s ease-in;
+  opacity: 0 !important;
+  transform: translateY(46vh) scale(0.25) !important;
+}
+.window-restoring {
+  transition:
+    opacity 0.18s ease-out,
+    transform 0.18s ease-out;
+}
+.fade-in {
+  animation: uruk-fade-in 0.35s ease both;
+}
+
+.window-shadow {
+  box-shadow:
+    0 22px 70px rgba(0, 0, 0, 0.5),
+    0 4px 18px rgba(0, 0, 0, 0.35),
+    0 0 0 0.5px rgba(0, 0, 0, 0.35);
+}
+.window-shadow-unfocused {
+  box-shadow:
+    0 10px 34px rgba(0, 0, 0, 0.35),
+    0 0 0 0.5px rgba(0, 0, 0, 0.25);
+}
+
+.text-editable {
+  user-select: text;
+}
+
+input,
+textarea {
+  user-select: text;
+}

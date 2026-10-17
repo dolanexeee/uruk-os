@@ -1,0 +1,7 @@
+node_modules/
+.next/
+out/
+qa/screenshots/
+*.log
+.DS_Store
+.vercel
