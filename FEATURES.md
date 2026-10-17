@@ -2,13 +2,13 @@
 
 An honest, evidence-based inventory of the whole system, scored the same way
 as Uruk Cut's PARITY.md. **Done** means it works and is covered by the
-automated suite (`qa/run-tests.mjs`, 199/199 checks; the live-Python
+automated suite (`qa/run-tests.mjs`, 217/217 checks; the live-Python
 checks live in `qa/python-smoke.mjs`, 10/10, because they need a browser
 with real internet) or was verified by hand against the running system.
 **Partial** means it exists but with a stated gap. **Missing** means not
 built. Nothing is claimed without evidence.
 
-_Last updated: v0.7.0 (Phase 5 feature set + real-world refinements: Python stdin guidance in Uruk Code and a full interface polish pass — see the Shell table)._
+_Last updated: v0.7.1 (lock no longer wipes app state — see the "Session survives lock + reload" row in the Shell table)._
 
 ## Shell & system
 
@@ -45,6 +45,7 @@ _Last updated: v0.7.0 (Phase 5 feature set + real-world refinements: Python stdi
 | Dock auto-hide (maximized window owns the screen; bottom-edge hover reveals; Settings toggle, on by default) | ✅ Done | Phase 4A suite: maximize → Dock off-screen → mouse to bottom edge → Dock floats back → mouse away → hides → unmaximize → Dock returns |
 | URUK identity (original Mesopotamian icon set + app names from design/NAMES.md) | ✅ Done | Icons: `design/icons/*.svg` served from `public/icons`, used in Dock, Plaza, desktop, Finder, Spotlight. Names: Uruk Files, Uruk Shell, Scribe, Ukkin, Shamash Gallery, Shamash Eye, Tablet, Abacus, Nanna, Lyre, Ishtar Gate, Plaza, Shard (Uruk Code kept). Internal app ids unchanged |
 | Interface polish pass (v0.7.0) | ✅ Done | From a surface-by-surface design review at 1440×900 in both appearances (before/after screenshots in `qa/polish-before/` + `qa/polish-after/`): Control Center tiles no longer truncate "Airplane Mode" / "Do Not Disturb" (panel 324→336 px, tighter tile internals); unfocused windows now dim their title text and mute their title bar like a real desktop; one corner-radius scale (windows + menus 12 px, Spotlight 20 px, glass panels 22–26 px, concentric menu-item radii); panel/menu fade-in tightened 0.35 s → 0.2 s; the tracked URUK OS wordmarks on the boot + login screens are optically centered |
+| Session survives lock + reload (v0.7.1) | ✅ Done | **Bug found in real use:** locking used to unmount the whole desktop, wiping app-internal state (Shell scrollback, Uruk Code's open file/unsaved buffer). The lock screen is now a pure overlay over the live, inert desktop — unlocking reveals the exact session, and a hit-test proves nothing beneath is reachable while locked. Defense in depth: per-account session state is mirrored to local storage (`lib/sessionState.ts`) — Shell scrollback/history/cwd, Uruk Code tabs + active tab + unsaved buffers (restored marked ●), Scribe unsaved drafts, Tablet note drafts + selection — so it also survives a full page reload. Suite: lock → unlock and reload flows assert all of it; screenshots `32-lock-session-before.png` / `33-unlocked-session-intact.png` |
 | Finder drag-between-folders | ⚠️ Partial | Move exists via right-click **Move to…**; direct drag between folders is not implemented |
 
 ## Apps

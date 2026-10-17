@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useFS } from "@/lib/fs";
+import { useOS } from "@/store/os";
 import { useSystem } from "@/store/system";
 import { notify } from "@/store/notifications";
 import { eventDateTime, readEvents, ymd } from "@/lib/events";
@@ -48,6 +49,8 @@ export default function SystemServices() {
   /* Spotlight hotkey */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // A locked session answers to the lock screen only.
+      if (useOS.getState().sessionLocked) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         togglePanel("spotlight");

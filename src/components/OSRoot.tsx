@@ -609,13 +609,28 @@ export default function OSRoot() {
   const appearance = useOS((s) => s.appearance);
   const accent = useOS((s) => s.accent);
   const windows = useOS((s) => s.windows);
+  const sessionLocked = useOS((s) => s.sessionLocked);
   const brightness = useSystem((s) => s.brightness);
+  const closePanels = useSystem((s) => s.closePanels);
 
   // Boot the account session: migration + bind the preselected
   // account's settings, prefs, notifications, and file system.
   useEffect(() => {
     void bootSession();
   }, []);
+
+  // Locking closes any open panel — a locked machine shows its lock
+  // screen and nothing else.
+  useEffect(() => {
+    if (sessionLocked) closePanels();
+  }, [sessionLocked, closePanels]);
+
+  // The desktop stays MOUNTED while the session is locked: the lock
+  // screen is a pure overlay (below) over a live, inert desktop, so
+  // unlocking reveals the exact same session — every window, every
+  // app's internal state — instead of remounting the world and
+  // wiping scrollbacks and unsaved buffers (the v0.7.0 bug).
+  const showDesktop = phase === "desktop" || sessionLocked;
 
   return (
     <div
@@ -625,38 +640,54 @@ export default function OSRoot() {
     >
       {phase === "boot" && <BootScreen />}
 
-      {phase === "login" && <LoginScreen />}
+      {phase === "login" && !sessionLocked && <LoginScreen />}
 
-      {phase === "desktop" && (
+      {showDesktop && (
         <>
-          <div className="absolute inset-0">
-            <ActiveWallpaper />
-          </div>
-          <DesktopSurface />
-          {windows.map((win) => {
-            const App = APP_COMPONENTS[win.app] as React.ComponentType<{ win: typeof win }>;
-            return (
-              <Window key={win.id} win={win}>
-                <App win={win} />
-              </Window>
-            );
-          })}
-          <MenuBar />
-          <Dock />
-          <SystemServices />
-          <Launchpad />
-          <ControlCenter />
-          <NotificationCenter />
-          <Spotlight />
-          <Banners />
-          <Screensaver />
-          {/* Display brightness: a real composited dim over everything. */}
           <div
-            data-testid="brightness-overlay"
-            data-brightness={brightness}
-            className="pointer-events-none fixed inset-0 z-[9900] bg-black"
-            style={{ opacity: Math.max(0, 1 - brightness) }}
-          />
+            className="absolute inset-0"
+            inert={sessionLocked}
+            aria-hidden={sessionLocked || undefined}
+          >
+            <div className="absolute inset-0">
+              <ActiveWallpaper />
+            </div>
+            <DesktopSurface />
+            {windows.map((win) => {
+              const App = APP_COMPONENTS[win.app] as React.ComponentType<{ win: typeof win }>;
+              return (
+                <Window key={win.id} win={win}>
+                  <App win={win} />
+                </Window>
+              );
+            })}
+            <MenuBar />
+            <Dock />
+            <SystemServices />
+            <Launchpad />
+            <ControlCenter />
+            <NotificationCenter />
+            <Spotlight />
+            <Banners />
+            <Screensaver />
+            {/* Display brightness: a real composited dim over everything. */}
+            <div
+              data-testid="brightness-overlay"
+              data-brightness={brightness}
+              className="pointer-events-none fixed inset-0 z-[9900] bg-black"
+              style={{ opacity: Math.max(0, 1 - brightness) }}
+            />
+          </div>
+          {sessionLocked && (
+            // The lock overlay: opaque, above every desktop surface
+            // (panels top out at z-9700; the screensaver at 9800 may
+            // still fade in over a locked screen, like a real machine,
+            // and wakes back to this). The desktop beneath is inert,
+            // so nothing under it can be seen, clicked, or focused.
+            <div className="fixed inset-0 z-[9750]" data-testid="lock-overlay">
+              <LoginScreen />
+            </div>
+          )}
         </>
       )}
     </div>

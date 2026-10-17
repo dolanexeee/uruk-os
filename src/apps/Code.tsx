@@ -24,6 +24,12 @@ import {
 } from "@/lib/languages";
 import { isPythonReady, runPython, type BridgeFile } from "@/lib/pyodide";
 import { codeStdinKeyFor, getActiveAccountId } from "@/lib/accounts";
+import {
+  MAX_BUFFER_CHARS,
+  loadSessionSection,
+  saveSessionSection,
+  type CodeSessionState,
+} from "@/lib/sessionState";
 import { useOS, type WinState } from "@/store/os";
 import { useSystem } from "@/store/system";
 
@@ -134,6 +140,15 @@ export default function Code({ win }: { win: WinState }) {
   const viewRef = useRef<EditorView | null>(null);
   const statesRef = useRef<Map<string, EditorState>>(new Map());
   const savedRef = useRef<Map<string, string>>(new Map());
+  /** Mirrors for the session persister (lib/sessionState). */
+  const openIdsRef = useRef<string[]>([]);
+  const langOverrideRef = useRef<Record<string, string>>({});
+  langOverrideRef.current = langOverride;
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The editor's doc-change listener schedules session saves via this. */
+  const schedulePersistRef = useRef<() => void>(() => {});
+  /** False until the saved session (if any) has been restored. */
+  const [ready, setReady] = useState(false);
   const activeRef = useRef<string | null>(null);
   const langComp = useRef(new Compartment());
   const themeComp = useRef(new Compartment());
@@ -197,6 +212,7 @@ export default function Code({ win }: { win: WinState }) {
               const saved = savedRef.current.get(fileId) ?? "";
               setDirty((d) => ({ ...d, [fileId]: u.state.doc.toString() !== saved }));
               usesInputCheckRef.current?.(u.state.doc.toString());
+              schedulePersistRef.current();
             }
           }),
         ],
@@ -255,11 +271,120 @@ export default function Code({ win }: { win: WinState }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* open the file we were launched with */
+  /* --------------------- session persistence ------------------------ */
+  /* Open tabs, the active tab, language overrides, and every UNSAVED
+   * buffer are mirrored to account-scoped storage (lib/sessionState)
+   * so they survive a full page reload — and any remount. Restored
+   * buffers that differ from disk come back marked dirty (●), exactly
+   * like an editor's hot exit. */
+
+  const persistSession = useCallback(() => {
+    const buffers: Record<string, string> = {};
+    for (const id of openIdsRef.current) {
+      const st =
+        id === activeRef.current
+          ? viewRef.current?.state
+          : statesRef.current.get(id);
+      const doc = st?.doc.toString();
+      const saved = savedRef.current.get(id);
+      if (
+        doc !== undefined &&
+        saved !== undefined &&
+        doc !== saved &&
+        doc.length <= MAX_BUFFER_CHARS
+      ) {
+        buffers[id] = doc;
+      }
+    }
+    const sess: CodeSessionState = {
+      openIds: openIdsRef.current,
+      activeId: activeRef.current,
+      buffers,
+      langOverride: langOverrideRef.current,
+    };
+    saveSessionSection("code", sess);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const persistSessionRef = useRef(persistSession);
+  persistSessionRef.current = persistSession;
+
+  const schedulePersist = useCallback(() => {
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => persistSessionRef.current(), 300);
+  }, []);
+  schedulePersistRef.current = schedulePersist;
+
   useEffect(() => {
+    openIdsRef.current = openIds;
+    schedulePersist();
+  }, [openIds, activeId, langOverride, schedulePersist]);
+
+  /* flush on unmount so the latest keystrokes are never the ones lost */
+  useEffect(() => {
+    return () => {
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+      persistSessionRef.current();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* restore the saved session once, before the launch file opens */
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const sess = loadSessionSection("code");
+      if (sess) {
+        if (sess.langOverride) setLangOverride(sess.langOverride);
+        const valid: string[] = [];
+        const dirtyMap: Record<string, boolean> = {};
+        for (const id of sess.openIds ?? []) {
+          const node = fs().nodes[id];
+          if (!node || node.type !== "file") continue;
+          const disk = await readNodeText(node);
+          savedRef.current.set(id, disk);
+          const doc = sess.buffers?.[id] ?? disk;
+          const st = buildState(id, doc, node.name);
+          statesRef.current.set(id, st);
+          valid.push(id);
+          if (doc !== disk) dirtyMap[id] = true;
+        }
+        if (!live) return;
+        if (valid.length) {
+          setOpenIds(valid);
+          const act =
+            sess.activeId && valid.includes(sess.activeId)
+              ? sess.activeId
+              : valid[valid.length - 1];
+          const st = statesRef.current.get(act);
+          if (st) {
+            // stdin memory + input() prominence follow the file, as in openFile
+            const filePath = pathOf(fs().nodes, act);
+            stdinPathRef.current = filePath;
+            setStdinTextState(loadStdinMemory()[filePath] ?? "");
+            setStdinUrged(false);
+            setUsesInput(USES_INPUT_RE.test(st.doc.toString()));
+            activeRef.current = act;
+            setActiveId(act);
+            if (viewRef.current) viewRef.current.setState(st);
+            else pendingStateRef.current = st;
+          }
+          setDirty(dirtyMap);
+        }
+      }
+      if (live) setReady(true);
+    })();
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* open the file we were launched with (after any session restore) */
+  useEffect(() => {
+    if (!ready) return;
     if (win.props.fileId) void openFile(win.props.fileId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [win.props.fileId]);
+  }, [ready, win.props.fileId]);
 
   /* theme follows system appearance */
   useEffect(() => {
@@ -325,6 +450,7 @@ export default function Code({ win }: { win: WinState }) {
     await fs().writeText(id, doc);
     savedRef.current.set(id, doc);
     setDirty((d) => ({ ...d, [id]: false }));
+    schedulePersistRef.current();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const saveRef = useRef(save);

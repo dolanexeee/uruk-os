@@ -12,6 +12,12 @@ import {
 } from "@/lib/fs";
 import { APP_NAMES, useOS, type AppId, type WinState } from "@/store/os";
 import { openFileNode } from "@/lib/associations";
+import {
+  claimTerminalSlot,
+  releaseTerminalSlot,
+  saveTerminalSlot,
+  type TerminalSessionState,
+} from "@/lib/sessionState";
 
 interface Line {
   text: string;
@@ -60,11 +66,20 @@ function tokenize(input: string): string[] {
 export default function Terminal({ win }: { win: WinState }) {
   const fs = useFS.getState;
   const os = useOS.getState;
-  const [cwdId, setCwdId] = useState(ROOT_ID);
-  const [lines, setLines] = useState<Line[]>([
-    { text: "URUK OS — uruksh 1.0. Type `help` for commands.", kind: "out" },
-  ]);
-  const [history, setHistory] = useState<string[]>([]);
+  // Session slot (lib/sessionState): claim the first unclaimed saved
+  // shell session, or start a fresh one. This is what brings the
+  // scrollback, command history, and cwd back after a full reload —
+  // and, as a side effect, across minimize/restore remounts.
+  const slotRef = useRef<{ key: string; state: TerminalSessionState | null } | null>(null);
+  if (slotRef.current === null) slotRef.current = claimTerminalSlot();
+  const restored = slotRef.current.state;
+  const [cwdId, setCwdId] = useState(restored?.cwdId ?? ROOT_ID);
+  const [lines, setLines] = useState<Line[]>(
+    restored?.lines ?? [
+      { text: "URUK OS — uruksh 1.0. Type `help` for commands.", kind: "out" },
+    ],
+  );
+  const [history, setHistory] = useState<string[]>(restored?.history ?? []);
   const [histIdx, setHistIdx] = useState(-1);
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -73,6 +88,38 @@ export default function Terminal({ win }: { win: WinState }) {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [lines]);
+
+  /* A restored cwd may point at a folder deleted since — fall home. */
+  useEffect(() => {
+    if (cwdId !== ROOT_ID && !fs().nodes[cwdId]) setCwdId(ROOT_ID);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* Mirror the session continuously (debounced) … */
+  const stateRef = useRef({ lines, history, cwdId });
+  stateRef.current = { lines, history, cwdId };
+  useEffect(() => {
+    const key = slotRef.current?.key;
+    if (!key) return;
+    const t = setTimeout(() => saveTerminalSlot(key, stateRef.current), 250);
+    return () => clearTimeout(t);
+  }, [lines, history, cwdId]);
+
+  /* … and flush + release on unmount. The saved slot is removed only
+   * when this window itself is gone (closed, or the session logged
+   * out); a plain remount keeps it for the next mount to claim. */
+  useEffect(() => {
+    const key = slotRef.current?.key;
+    if (!key) return;
+    return () => {
+      saveTerminalSlot(key, stateRef.current);
+      const windowGone = !useOS
+        .getState()
+        .windows.some((w) => w.id === win.id);
+      releaseTerminalSlot(key, windowGone);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const nodes = () => fs().nodes;
   /** The signed-in account's home name (the FS root node's name). */
@@ -98,7 +145,7 @@ export default function Terminal({ win }: { win: WinState }) {
     const info = [
       `${homeName()}@uruk-os`,
       "────────────────",
-      "OS:        URUK OS 0.7.0 (browser build)",
+      "OS:        URUK OS 0.7.1 (browser build)",
       `Shell:     uruksh 1.0`,
       `Files:     ${Object.keys(n).length} nodes, ${(totalSize(n) / 1024).toFixed(1)} KB stored`,
       `Storage:   ${storageLine}`,

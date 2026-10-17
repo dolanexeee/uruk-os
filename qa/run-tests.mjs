@@ -1302,6 +1302,121 @@ async function main() {
   await closeWin("editor");
   await page.screenshot({ path: path.join(SHOTS, "25-desktop-identity.png") });
 
+  /* ================= v0.7.1: lock keeps the session alive ================= */
+
+  console.log("— v0.7.1: lock → unlock and reload preserve app state —");
+  // Start from a known window state (an earlier section may have left
+  // a Shell window open; Shell is multi-instance).
+  while ((await page.locator('[data-testid="window-terminal"]').count()) > 0) {
+    await closeWin("terminal");
+  }
+  // A PIN makes this a real lock (set here, removed at the end).
+  await page.click('[data-testid="dock-icon-settings"]');
+  await waitFor(() => page.locator('[data-testid="window-settings"]').isVisible().catch(() => false));
+  await page.click('[data-testid="settings-pane-security"]');
+  await page.fill('[data-testid="pin-new"]', "1357");
+  await page.fill('[data-testid="pin-confirm"]', "1357");
+  await page.click('[data-testid="pin-set"]');
+  const lockPinSet = await waitFor(async () => {
+    const t = await page.locator('[data-testid="pin-status"]').innerText().catch(() => "");
+    return t.includes("PIN set") ? t : null;
+  });
+  check("lock-state: PIN 1357 set for the lock test", !!lockPinSet);
+  await closeWin("settings");
+
+  await page.click('[data-testid="dock-icon-terminal"]');
+  await waitFor(() => page.locator('[data-testid="window-terminal"]').isVisible().catch(() => false));
+  await termType(page, "echo LOCKPROBE-OUT-42");
+  await termType(page, "cd Documents");
+  await termType(page, "pwd");
+  const lockBefore = await page.locator('[data-testid="terminal"]').innerText();
+  check(
+    "lock-state setup: shell shows probe output + ~/Documents",
+    lockBefore.includes("LOCKPROBE-OUT-42") && lockBefore.includes("~/Documents"),
+  );
+
+  await page.click('[data-testid="dock-icon-code"]');
+  await waitFor(() => page.locator('[data-testid="window-code"]').isVisible().catch(() => false));
+  await page.click('[data-testid="code-new"]');
+  await page.selectOption('[data-testid="code-template-select"]', "python");
+  await page.fill('[data-testid="code-new-name"]', "lockprobe.py");
+  await page.selectOption('[data-testid="code-new-folder"]', "folder-documents");
+  await page.click('[data-testid="code-create"]');
+  await waitFor(() => page.locator('[data-testid="code-tab-lockprobe.py"]').isVisible().catch(() => false));
+  await page.click('[data-testid="code-editor"] .cm-content');
+  await page.keyboard.type("UNSAVED_LOCK_MARKER = 1\n");
+  await page.waitForTimeout(400);
+  const codeLockBefore = await page.locator('[data-testid="window-code"]').innerText();
+  check("lock-state setup: code buffer holds the unsaved marker", codeLockBefore.includes("UNSAVED_LOCK_MARKER"));
+  await page.screenshot({ path: path.join(SHOTS, "32-lock-session-before.png") });
+
+  await page.click('[data-testid="menubar-system"]');
+  await page.getByRole("button", { name: "Lock Screen" }).click();
+  const lockPinUp = await waitFor(() => page.locator('[data-testid="login-pin-input"]').isVisible().catch(() => false));
+  check("lock-state: lock screen asks for the PIN", !!lockPinUp);
+  const lockHit = await page.evaluate(() => {
+    const el = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+    return el && el.closest('[data-testid="lock-overlay"]') ? "lock-overlay" : "other";
+  });
+  check("lock-state: desktop content is covered (hit-test lands on the lock overlay)", lockHit === "lock-overlay", lockHit);
+  await page.keyboard.type("echo SHOULD_NOT_RUN");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(300);
+  check(
+    "lock-state: stray typing + Enter does not unlock or reach the shell",
+    await page.locator('[data-testid="login-pin-input"]').isVisible().catch(() => false),
+  );
+  await page.fill('[data-testid="login-pin-input"]', "1357");
+  await page.click('[data-testid="login-pin-submit"]');
+  const lockUnlocked = await waitFor(() => page.locator('[data-testid="dock"]').isVisible().catch(() => false));
+  check("lock-state: correct PIN unlocks", !!lockUnlocked);
+  await page.waitForTimeout(400);
+  const termAfterUnlock = await page.locator('[data-testid="terminal"]').innerText();
+  check("lock-state: Shell scrollback survived the lock (probe output)", termAfterUnlock.includes("LOCKPROBE-OUT-42"));
+  check("lock-state: Shell scrollback survived the lock (pwd line)", termAfterUnlock.includes("~/Documents"));
+  check("lock-state: locked typing never reached the shell", !termAfterUnlock.includes("SHOULD_NOT_RUN"));
+  const codeAfterUnlock = await page.locator('[data-testid="window-code"]').innerText();
+  check("lock-state: Uruk Code unsaved buffer survived the lock", codeAfterUnlock.includes("UNSAVED_LOCK_MARKER"));
+  await page.screenshot({ path: path.join(SHOTS, "33-unlocked-session-intact.png") });
+
+  console.log("— v0.7.1: the same state also survives a full reload —");
+  await page.reload({ waitUntil: "networkidle" });
+  const lockLogin2 = await waitFor(() => page.locator('[data-testid="login-screen"]').isVisible().catch(() => false), 12000);
+  check("lock-state: login screen after reload", !!lockLogin2);
+  await loginToDesktop(page, { pin: "1357" });
+  await page.click('[data-testid="dock-icon-terminal"]');
+  await waitFor(() => page.locator('[data-testid="window-terminal"]').isVisible().catch(() => false));
+  await page.waitForTimeout(600);
+  const termAfterReload = await page.locator('[data-testid="terminal"]').innerText();
+  check(
+    "lock-state: Shell scrollback restored after reload",
+    termAfterReload.includes("LOCKPROBE-OUT-42") && termAfterReload.includes("~/Documents"),
+  );
+  await termType(page, "pwd");
+  const termPwd = await page.locator('[data-testid="terminal"]').innerText();
+  check("lock-state: Shell cwd restored after reload (prompt in ~/Documents)", termPwd.includes("~/Documents$"));
+  await page.click('[data-testid="dock-icon-code"]');
+  await waitFor(() => page.locator('[data-testid="window-code"]').isVisible().catch(() => false));
+  await page.waitForTimeout(700);
+  const codeAfterReload = await page.locator('[data-testid="window-code"]').innerText();
+  check("lock-state: Uruk Code tab restored after reload (lockprobe.py)", codeAfterReload.includes("lockprobe.py"));
+  check("lock-state: Uruk Code unsaved buffer restored after reload", codeAfterReload.includes("UNSAVED_LOCK_MARKER"));
+  check("lock-state: restored buffer is marked unsaved (●)", codeAfterReload.includes("●"));
+  await closeWin("code");
+  await closeWin("terminal");
+  // Leave the profile as the suite found it: no PIN.
+  await page.click('[data-testid="dock-icon-settings"]');
+  await waitFor(() => page.locator('[data-testid="window-settings"]').isVisible().catch(() => false));
+  await page.click('[data-testid="settings-pane-security"]');
+  await page.fill('[data-testid="pin-current"]', "1357");
+  await page.click('[data-testid="pin-remove"]');
+  const lockPinRemoved = await waitFor(async () => {
+    const t = await page.locator('[data-testid="pin-status"]').innerText().catch(() => "");
+    return t.includes("PIN removed") ? t : null;
+  });
+  check("lock-state cleanup: PIN removed again", !!lockPinRemoved);
+  await closeWin("settings");
+
   await browser.close();
   server.kill();
 

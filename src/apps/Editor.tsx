@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ROOT_ID, readNodeText, useFS } from "@/lib/fs";
 import { useOS, type WinState } from "@/store/os";
+import {
+  MAX_BUFFER_CHARS,
+  loadSessionSection,
+  saveSessionSection,
+} from "@/lib/sessionState";
 
 export default function Editor({ win }: { win: WinState }) {
   const nodes = useFS((s) => s.nodes);
@@ -33,8 +38,16 @@ export default function Editor({ win }: { win: WinState }) {
     }
     void readNodeText(n).then((t) => {
       if (!live) return;
-      setText(t);
-      setSavedText(t);
+      // A mirrored unsaved draft (lib/sessionState) wins over the
+      // disk copy — that is the whole point of mirroring it.
+      const draft = loadSessionSection("editorDrafts")?.[fileId];
+      if (draft !== undefined && draft !== t) {
+        setText(draft);
+        setSavedText(t);
+      } else {
+        setText(t);
+        setSavedText(t);
+      }
       setLoaded(true);
     });
     return () => {
@@ -42,6 +55,24 @@ export default function Editor({ win }: { win: WinState }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileId]);
+
+  /* mirror unsaved text per file so it survives a reload */
+  useEffect(() => {
+    if (!fileId || !loaded) return;
+    const t = setTimeout(() => {
+      const drafts = { ...(loadSessionSection("editorDrafts") ?? {}) };
+      if (text !== savedText && text.length <= MAX_BUFFER_CHARS) {
+        drafts[fileId] = text;
+      } else {
+        delete drafts[fileId];
+      }
+      saveSessionSection(
+        "editorDrafts",
+        Object.keys(drafts).length ? drafts : undefined,
+      );
+    }, 250);
+    return () => clearTimeout(t);
+  }, [fileId, text, savedText, loaded]);
 
   /* window title with dirty dot */
   useEffect(() => {

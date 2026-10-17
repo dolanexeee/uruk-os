@@ -7,6 +7,12 @@ import {
   type FSNode,
 } from "@/lib/fs";
 import { useOS, type WinState } from "@/store/os";
+import {
+  MAX_BUFFER_CHARS,
+  loadSessionSection,
+  saveSessionSection,
+  type NotesSessionState,
+} from "@/lib/sessionState";
 
 /**
  * Notes — every note is a real .txt file inside the `Notes` home folder,
@@ -33,11 +39,24 @@ export default function Notes({ win }: { win: WinState }) {
   const focused = os.focusedId === win.id;
 
   const [folderId, setFolderId] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () => loadSessionSection("notes")?.selectedId ?? null,
+  );
   const [query, setQuery] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // The session copy of the drafts, read once: a draft there can be
+  // NEWER than the file on disk (the 450 ms autosave may not have
+  // landed before a reload), in which case it wins and is flushed.
+  const sessionNotesRef = useRef<NotesSessionState | null | undefined>(undefined);
+  if (sessionNotesRef.current === undefined) {
+    sessionNotesRef.current = loadSessionSection("notes") ?? null;
+  }
+  const draftsRef = useRef(drafts);
+  draftsRef.current = drafts;
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
 
   /* ensure the Notes folder exists (first use) */
   useEffect(() => {
@@ -69,7 +88,17 @@ export default function Notes({ win }: { win: WinState }) {
       if (drafts[n.id] === undefined) {
         void readNodeText(n).then((t) => {
           if (!live) return;
-          setDrafts((d) => (d[n.id] === undefined ? { ...d, [n.id]: t } : d));
+          const sessionDraft = sessionNotesRef.current?.drafts?.[n.id];
+          if (sessionDraft !== undefined && sessionDraft !== t) {
+            // The autosave never landed before the last unload —
+            // adopt the newer draft and flush it to the file now.
+            setDrafts((d) =>
+              d[n.id] === undefined ? { ...d, [n.id]: sessionDraft } : d,
+            );
+            void fs().writeText(n.id, sessionDraft);
+          } else {
+            setDrafts((d) => (d[n.id] === undefined ? { ...d, [n.id]: t } : d));
+          }
         });
       }
     }
@@ -78,6 +107,34 @@ export default function Notes({ win }: { win: WinState }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteNodes]);
+
+  /* mirror drafts + selection so they survive a reload */
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const capped: Record<string, string> = {};
+      for (const [id, text] of Object.entries(draftsRef.current)) {
+        if (text.length <= MAX_BUFFER_CHARS) capped[id] = text;
+      }
+      saveSessionSection("notes", {
+        selectedId: selectedIdRef.current,
+        drafts: capped,
+      });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [drafts, selectedId]);
+
+  /* on unmount, flush a pending autosave instead of dropping it */
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        const id = selectedIdRef.current;
+        const text = id ? draftsRef.current[id] : undefined;
+        if (id && text !== undefined) void fs().writeText(id, text);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* auto-select the most recent note */
   useEffect(() => {

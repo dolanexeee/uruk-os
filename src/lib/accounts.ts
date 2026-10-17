@@ -113,6 +113,9 @@ export function clockKeyFor(accountId: string): string {
 export function codeStdinKeyFor(accountId: string): string {
   return scoped("uruk-code-stdin-v1", accountId);
 }
+export function sessionKeyFor(accountId: string): string {
+  return scoped("uruk-os-session-v1", accountId);
+}
 
 /** Every localStorage key that belongs to an account (for delete). */
 export function accountStorageKeys(accountId: string): string[] {
@@ -126,6 +129,7 @@ export function accountStorageKeys(accountId: string): string[] {
     remindedKeyFor(accountId),
     clockKeyFor(accountId),
     codeStdinKeyFor(accountId),
+    sessionKeyFor(accountId),
     `${weatherKeyFor(accountId)}-forecast`,
   ];
 }
