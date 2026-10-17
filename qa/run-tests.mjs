@@ -1,7 +1,11 @@
 /**
- * Uruk OS — Phases 1–4A end-to-end suite (Playwright, Chromium).
+ * Uruk OS — Phases 1–5 end-to-end suite (Playwright, Chromium).
  * Runs against the PRODUCTION server build (`next start`), so the
- * /api/proxy route is exercised exactly as deployed.
+ * /api/proxy route is exercised exactly as deployed. The Chromium
+ * sandbox browser has no direct internet: Phase 5's live-Python and
+ * real-tile checks live in qa/python-smoke.mjs (Firefox + proxy);
+ * here, Open-Meteo/Nominatim are route-mocked deterministically and
+ * the Python run asserts its honest offline failure state.
  * Usage: node qa/run-tests.mjs   (expects `npm run build` to have run)
  */
 import { chromium } from "playwright";
@@ -924,6 +928,308 @@ async function main() {
   await page.click('[data-testid="login-button"]');
   await waitFor(() => page.locator('[data-testid="dock"]').isVisible().catch(() => false), 20000);
   check("accounts: suite ends signed in as A", true);
+
+  /* ================= Phase 5 ================= */
+
+  console.log("— phase 5: uruk code languages (mode, tokens, honest run gating) —");
+  await page.click('[data-testid="dock-icon-terminal"]');
+  await waitFor(() => page.locator('[data-testid="window-terminal"]').isVisible().catch(() => false));
+  await termType(page, `echo 'fn main() { let x = 41; println!("{}", x + 1); }' > Documents/hello.rs`);
+  await termType(page, `echo 'int main(void) { int x = 41; return x + 1; }' > Documents/hello.c`);
+  await termType(page, `echo 'print(6 * 7)' > Documents/py42.py`);
+  await termType(page, `echo 'wedges and rivers' > Documents/sibling.txt`);
+  await termType(page, `echo 'print(open("sibling.txt").read())' > Documents/reader.py`);
+  await termType(page, `echo 'print(sum(i*i for i in range(10)))' > Documents/sumsq.py`);
+  await termType(page, `echo 'console.log("ts-" + (1 + 1))' > Documents/app.ts`);
+  await closeWin("terminal");
+
+  await page.click('[data-testid="dock-icon-code"]');
+  await waitFor(() => page.locator('[data-testid="window-code"]').isVisible().catch(() => false));
+  const openInCode = async (name) => {
+    await page.click('[data-testid="code-open"]');
+    await page.locator('[data-testid="code-open-list"] button', { hasText: name }).first().click();
+    await waitFor(() => page.locator(`[data-testid="code-tab-${name}"]`).isVisible().catch(() => false));
+  };
+  const editorAttr = (attr) => page.locator('[data-testid="code-editor"]').getAttribute(attr);
+
+  await openInCode("hello.rs");
+  const rsLang = await waitFor(async () => ((await editorAttr("data-language")) === "rust" ? true : null));
+  check("code: .rs resolves to the Rust language mode", !!rsLang);
+  const rsTokens = await waitFor(async () => {
+    const t = (await editorAttr("data-tokens")) ?? "";
+    return t.includes("FunctionItem") ? t : null;
+  });
+  check("code: .rs parse tree is Rust (FunctionItem tokens)", !!rsTokens, rsTokens ?? "");
+  check("code: Rust shows the highlighting-only note", await page.locator('[data-testid="code-hl-note"]').isVisible().catch(() => false));
+  check("code: Rust has NO Run button (honest gating)", (await page.locator('[data-testid="code-run"]').count()) === 0);
+  await page.selectOption('[data-testid="code-lang-select"]', "python");
+  const swLang = await waitFor(async () => ((await editorAttr("data-language")) === "python" ? true : null));
+  check("code: manual language switcher overrides the mode", !!swLang);
+  await page.selectOption('[data-testid="code-lang-select"]', "rust");
+  await waitFor(async () => ((await editorAttr("data-language")) === "rust" ? true : null));
+
+  await openInCode("hello.c");
+  const cLang = await waitFor(async () => ((await editorAttr("data-language")) === "c" ? true : null));
+  check("code: .c resolves to the C language mode", !!cLang);
+  const cTokens = await waitFor(async () => {
+    const t = (await editorAttr("data-tokens")) ?? "";
+    return t.includes("FunctionDefinition") ? t : null;
+  });
+  check("code: .c parse tree is C (FunctionDefinition tokens)", !!cTokens, cTokens ?? "");
+
+  await openInCode("app.ts");
+  const tsLang = await waitFor(async () => ((await editorAttr("data-language")) === "typescript" ? true : null));
+  check("code: .ts resolves to the TypeScript language mode", !!tsLang);
+  check("code: TypeScript gets a Run button", await page.locator('[data-testid="code-run"]').isVisible().catch(() => false));
+  await page.click('[data-testid="code-run"]');
+  const tsOut = await waitFor(async () => {
+    const t = await page.locator('[data-testid="code-output"]').innerText().catch(() => "");
+    return t.includes("ts-2") ? t : null;
+  }, 12000);
+  check("code: TypeScript runs in the sandbox (output ts-2)", !!tsOut, (tsOut ?? "").slice(0, 160));
+
+  await openInCode("py42.py");
+  const pyLang = await waitFor(async () => ((await editorAttr("data-language")) === "python" ? true : null));
+  check("code: .py resolves to the Python language mode", !!pyLang);
+  await page.click('[data-testid="code-run"]');
+  check("code: Python run opens the stdin box", await page.locator('[data-testid="code-stdin"]').isVisible().catch(() => false));
+  const pyOffline = await waitFor(async () => {
+    const t = await page.locator('[data-testid="code-output"]').innerText().catch(() => "");
+    return t.includes("Couldn't load the Python runtime") ? t : null;
+  }, 90000);
+  check("code: offline Python run fails HONESTLY (no fake output)", !!pyOffline, (pyOffline ?? "").slice(0, 200));
+
+  console.log("— phase 5: uruk code templates write real files —");
+  await page.click('[data-testid="code-new"]');
+  await waitFor(() => page.locator('[data-testid="code-new-form"]').isVisible().catch(() => false));
+  await page.selectOption('[data-testid="code-template-select"]', "python");
+  const tplName = await page.locator('[data-testid="code-new-name"]').inputValue();
+  check("code: Python template pre-fills hello.py", tplName === "hello.py", tplName);
+  await page.click('[data-testid="code-create"]');
+  const tplTab = await waitFor(() => page.locator('[data-testid="code-tab-hello.py"]').isVisible().catch(() => false));
+  check("code: template file opens in a tab", !!tplTab);
+  const tplBody = await page.locator('[data-testid="code-editor"] .cm-content').innerText().catch(() => "");
+  check("code: template body is the Python starter", tplBody.includes("def greet"), tplBody.slice(0, 120));
+  await closeWin("code");
+  await page.click('[data-testid="dock-icon-finder"]');
+  await waitFor(() => page.locator('[data-testid="window-finder"]').isVisible().catch(() => false));
+  await page.click('[data-testid="finder-sidebar-documents"]');
+  const tplInFinder = await waitFor(() => page.locator('[data-testid="finder-item-hello.py"]').isVisible().catch(() => false));
+  check("code: template file is a REAL file (visible in Uruk Files)", !!tplInFinder);
+  await closeWin("finder");
+
+  console.log("— phase 5: clepsydra (world clock, stopwatch, timer → notification) —");
+  await page.click('[data-testid="dock-icon-clock"]');
+  const clockUp = await waitFor(() => page.locator('[data-testid="window-clock"]').isVisible().catch(() => false));
+  check("clepsydra opens from the Dock", !!clockUp);
+  check("clepsydra: Baghdad is a default city", await page.locator('[data-testid="clock-city-Asia-Baghdad"]').isVisible().catch(() => false));
+  check("clepsydra: Edmonton is a default city", await page.locator('[data-testid="clock-city-America-Edmonton"]').isVisible().catch(() => false));
+  const bgTime = await page.locator('[data-testid="clock-time-Asia-Baghdad"]').innerText().catch(() => "");
+  check("clepsydra: Baghdad clock ticks (HH:MM:SS)", /^\d{2}:\d{2}:\d{2}$/.test(bgTime.trim()), bgTime);
+  await page.selectOption('[data-testid="clock-add-select"]', "Europe/London");
+  await page.click('[data-testid="clock-add-btn"]');
+  check("clepsydra: London added from the preset list", await page.locator('[data-testid="clock-city-Europe-London"]').isVisible().catch(() => false));
+  await page.click('[data-testid="clock-remove-Europe-London"]');
+  const londonGone = await waitFor(async () => (await page.locator('[data-testid="clock-city-Europe-London"]').count()) === 0);
+  check("clepsydra: London removed again", !!londonGone);
+
+  await page.click('[data-testid="clock-tab-stopwatch"]');
+  await page.click('[data-testid="sw-toggle"]');
+  await page.waitForTimeout(700);
+  await page.click('[data-testid="sw-lap"]');
+  const lapCount = await page.locator('[data-testid="sw-lap-item"]').count();
+  check("clepsydra: stopwatch lap recorded", lapCount === 1, String(lapCount));
+  await page.click('[data-testid="sw-toggle"]');
+  const swText = await page.locator('[data-testid="sw-display"]').innerText();
+  check("clepsydra: stopwatch display advanced past zero", swText.trim() !== "00:00.00", swText);
+  await page.click('[data-testid="sw-reset"]');
+
+  await page.click('[data-testid="clock-tab-timer"]');
+  await page.fill('[data-testid="timer-min"]', "0");
+  await page.fill('[data-testid="timer-sec"]', "3");
+  await page.click('[data-testid="timer-toggle"]');
+  const tDone = await waitFor(() => page.locator('[data-testid="timer-done"]').isVisible().catch(() => false), 15000);
+  check("clepsydra: 3-second timer finishes", !!tDone);
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: path.join(SHOTS, "30-clepsydra-timer.png") });
+  await page.click('[data-testid="menubar-clock"]');
+  const ncUp5 = await waitFor(() => page.locator('[data-testid="notification-center"]').isVisible().catch(() => false));
+  check("clepsydra: notification center opens", !!ncUp5);
+  const ncText5 = await page.locator('[data-testid="notification-center"]').innerText();
+  check("clepsydra: timer landed in the Notification Center", ncText5.includes("Timer finished"), ncText5.slice(0, 200));
+  await page.keyboard.press("Escape");
+  await closeWin("clock");
+
+  console.log("— phase 5: forge (JSON, Base64, URL, UUID, SHA-256, regex, text) —");
+  const { createHash } = await import("node:crypto");
+  await page.click('[data-testid="dock-icon-tools"]');
+  const toolsUp = await waitFor(() => page.locator('[data-testid="window-tools"]').isVisible().catch(() => false));
+  check("forge opens from the Dock", !!toolsUp);
+  await page.fill('[data-testid="forge-json-input"]', '{"city":"Uruk","river":"Euphrates","n":7}');
+  await page.click('[data-testid="forge-json-format"]');
+  const jsonOutVal = await page.locator('[data-testid="forge-json-output"]').inputValue().catch(() => "");
+  check("forge: JSON pretty-prints a minified sample", jsonOutVal.includes('"city": "Uruk"') && jsonOutVal.includes("\n"), jsonOutVal.slice(0, 120));
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: path.join(SHOTS, "28-forge-json.png") });
+  await page.fill('[data-testid="forge-json-input"]', '{"a": }');
+  await page.click('[data-testid="forge-json-format"]');
+  const jsonErrText = await waitFor(async () => {
+    const t = await page.locator('[data-testid="forge-json-error"]').innerText().catch(() => "");
+    return t ? t : null;
+  });
+  check("forge: invalid JSON reports an error POSITION", !!jsonErrText && /line 1, column \d+ \(position \d+\)/.test(jsonErrText), jsonErrText ?? "");
+
+  await page.click('[data-testid="forge-tab-base64"]');
+  await page.fill('[data-testid="forge-b64-input"]', "hello uruk");
+  await page.click('[data-testid="forge-b64-encode"]');
+  const b64Enc = await page.locator('[data-testid="forge-b64-output"]').inputValue();
+  check("forge: Base64 encode matches the reference", b64Enc === Buffer.from("hello uruk", "utf8").toString("base64"), b64Enc);
+  await page.fill('[data-testid="forge-b64-input"]', b64Enc);
+  await page.click('[data-testid="forge-b64-decode"]');
+  const b64Dec = await page.locator('[data-testid="forge-b64-output"]').inputValue();
+  check("forge: Base64 round-trip returns the original", b64Dec === "hello uruk", b64Dec);
+
+  await page.click('[data-testid="forge-tab-url"]');
+  await page.fill('[data-testid="forge-url-input"]', "a b&c=d");
+  await page.click('[data-testid="forge-url-encode"]');
+  const urlEnc = await page.locator('[data-testid="forge-url-output"]').inputValue();
+  check("forge: URL encode", urlEnc === "a%20b%26c%3Dd", urlEnc);
+
+  await page.click('[data-testid="forge-tab-uuid"]');
+  await page.click('[data-testid="forge-uuid-gen-10"]');
+  const uuidTexts = await page.locator('[data-testid="forge-uuid-item"]').allInnerTexts();
+  const v4re = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  check("forge: 10 UUIDs generated, all RFC 4122 v4", uuidTexts.length === 10 && uuidTexts.every((u) => v4re.test(u.trim())), uuidTexts[0] ?? "");
+
+  await page.click('[data-testid="forge-tab-sha256"]');
+  await page.fill('[data-testid="forge-sha-input"]', "uruk");
+  await page.click('[data-testid="forge-sha-run"]');
+  const shaExpected = createHash("sha256").update("uruk").digest("hex");
+  const shaGot = await waitFor(async () => {
+    const v = await page.locator('[data-testid="forge-sha-output"]').inputValue().catch(() => "");
+    return v === shaExpected ? v : null;
+  });
+  check("forge: SHA-256('uruk') equals the reference digest", !!shaGot, shaGot ?? "");
+
+  await page.click('[data-testid="forge-tab-regex"]');
+  await page.fill('[data-testid="forge-regex-pattern"]', "\\d+");
+  await page.fill('[data-testid="forge-regex-text"]', "a1 b22 c333");
+  const rxCount = await page.locator('[data-testid="forge-regex-count"]').innerText();
+  check("forge: regex tester counts 3 matches", rxCount.includes("3 matches"), rxCount);
+  const rxMarks = await page.locator('[data-testid="forge-regex-matches"] mark').count();
+  check("forge: regex matches are highlighted", rxMarks === 3, String(rxMarks));
+
+  await page.click('[data-testid="forge-tab-text"]');
+  await page.fill('[data-testid="forge-text-input"]', "one two\nthree");
+  check(
+    "forge: text counter (13 chars / 3 words / 2 lines)",
+    (await page.locator('[data-testid="forge-text-chars"]').innerText()) === "13" &&
+      (await page.locator('[data-testid="forge-text-words"]').innerText()) === "3" &&
+      (await page.locator('[data-testid="forge-text-lines"]').innerText()) === "2",
+  );
+  await closeWin("tools");
+
+  console.log("— phase 5: adad (mocked Open-Meteo: current, hourly, 7-day, city search) —");
+  const geoBaghdad = { results: [{ name: "Baghdad", country: "Iraq", admin1: "Baghdad", latitude: 33.3406, longitude: 44.4009 }] };
+  const geoEdmonton = { results: [{ name: "Edmonton", country: "Canada", admin1: "Alberta", latitude: 53.5461, longitude: -113.4937 }] };
+  const mkForecast = (tempNow, hi0, lo0) => {
+    const times = [];
+    const temps = [];
+    const codes = [];
+    for (let d = 0; d < 2; d++) {
+      for (let h = 0; h < 24; h++) {
+        times.push(`2026-10-1${7 + d}T${String(h).padStart(2, "0")}:00`);
+        temps.push(18 + ((h + d * 3) % 14));
+        codes.push(h % 3);
+      }
+    }
+    return {
+      current: { time: "2026-10-17T14:30", temperature_2m: tempNow, relative_humidity_2m: 18, apparent_temperature: tempNow - 2, weather_code: 0, wind_speed_10m: 12.3, is_day: 1 },
+      hourly: { time: times, temperature_2m: temps, weather_code: codes },
+      daily: {
+        time: ["2026-10-17", "2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23"],
+        weather_code: [0, 1, 2, 3, 61, 0, 2],
+        temperature_2m_max: [hi0, hi0 - 1, hi0 - 2, hi0 - 3, hi0 - 4, hi0 - 2, hi0 - 1],
+        temperature_2m_min: [lo0, lo0 - 1, lo0 - 1, lo0 - 2, lo0 - 2, lo0 - 1, lo0],
+      },
+    };
+  };
+  await page.route("https://geocoding-api.open-meteo.com/**", (route) => {
+    const url = route.request().url();
+    return route.fulfill({ json: url.includes("Edmonton") ? geoEdmonton : geoBaghdad });
+  });
+  await page.route("https://api.open-meteo.com/**", (route) => {
+    const url = route.request().url();
+    return route.fulfill({ json: url.includes("53.5461") ? mkForecast(4.6, 9.4, -1.2) : mkForecast(31.4, 33.2, 19.8) });
+  });
+  await page.click('[data-testid="dock-icon-weather"]');
+  const adadUp = await waitFor(() => page.locator('[data-testid="window-weather"]').isVisible().catch(() => false));
+  check("adad opens from the Dock", !!adadUp);
+  const adadCurrent = await waitFor(() => page.locator('[data-testid="weather-current"]').isVisible().catch(() => false), 15000);
+  check("adad: current conditions render (mocked API)", !!adadCurrent);
+  check("adad: city is the Settings city (Baghdad)", ((await page.locator('[data-testid="weather-city"]').innerText().catch(() => "")) ?? "").includes("Baghdad"));
+  check("adad: current temp is the fixture's 31°", (await page.locator('[data-testid="weather-temp"]').getAttribute("data-temp")) === "31");
+  check(
+    "adad: today hi/lo from the fixture (33° / 20°)",
+    ((await page.locator('[data-testid="weather-day-0-hi"]').innerText()) ?? "").includes("33") &&
+      ((await page.locator('[data-testid="weather-day-0-lo"]').innerText()) ?? "").includes("20"),
+  );
+  const hourCount = await page.locator('[data-testid="weather-hour"]').count();
+  check("adad: 24 hourly entries render", hourCount === 24, String(hourCount));
+  check("adad: 7-day forecast renders through day 6", await page.locator('[data-testid="weather-day-6"]').isVisible().catch(() => false));
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: path.join(SHOTS, "29-adad-forecast.png") });
+  await page.fill('[data-testid="weather-search"]', "Edmonton");
+  await page.click('[data-testid="weather-search-btn"]');
+  const wResult = await waitFor(() => page.locator('[data-testid="weather-result-0"]').isVisible().catch(() => false), 12000);
+  check("adad: city search returns results", !!wResult);
+  await page.click('[data-testid="weather-result-0"]');
+  const edmTemp = await waitFor(async () => {
+    const v = await page.locator('[data-testid="weather-temp"]').getAttribute("data-temp").catch(() => null);
+    return v === "5" ? v : null;
+  }, 12000);
+  check("adad: picking Edmonton refetches its forecast (5°)", !!edmTemp);
+  check("adad: city now Edmonton", ((await page.locator('[data-testid="weather-city"]').innerText().catch(() => "")) ?? "").includes("Edmonton"));
+  await closeWin("weather");
+  await page.unroute("https://geocoding-api.open-meteo.com/**");
+  await page.unroute("https://api.open-meteo.com/**");
+
+  console.log("— phase 5: two rivers (OSM embed + mocked Nominatim) —");
+  await page.route("https://nominatim.openstreetmap.org/**", (route) =>
+    route.fulfill({
+      json: [
+        {
+          display_name: "Baghdad, Iraq",
+          lat: "33.3152",
+          lon: "44.3661",
+          boundingbox: ["33.1000", "33.5000", "44.2000", "44.5000"],
+        },
+      ],
+    }),
+  );
+  await page.click('[data-testid="dock-icon-maps"]');
+  const mapsUp = await waitFor(() => page.locator('[data-testid="window-maps"]').isVisible().catch(() => false));
+  check("two rivers opens from the Dock", !!mapsUp);
+  const srcDefault = await page.locator('[data-testid="maps-frame"]').getAttribute("src");
+  check(
+    "two rivers: embed starts on Baghdad with a marker",
+    !!srcDefault && srcDefault.includes("openstreetmap.org/export/embed.html") && srcDefault.includes("marker=33.3152%2C44.3661"),
+    srcDefault ?? "",
+  );
+  await page.fill('[data-testid="maps-search"]', "Baghdad");
+  await page.click('[data-testid="maps-search-btn"]');
+  const mResult = await waitFor(() => page.locator('[data-testid="maps-result-0"]').isVisible().catch(() => false), 12000);
+  check("two rivers: Nominatim search returns a result", !!mResult);
+  await page.click('[data-testid="maps-result-0"]');
+  const srcMoved = await waitFor(async () => {
+    const s = await page.locator('[data-testid="maps-frame"]').getAttribute("src").catch(() => "");
+    return s && s.includes("bbox=44.200000%2C33.100000%2C44.500000%2C33.500000") ? s : null;
+  }, 12000);
+  check("two rivers: selecting the result moves the embed to its bbox", !!srcMoved, srcMoved ?? "");
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: path.join(SHOTS, "27-two-rivers-baghdad.png") });
+  await closeWin("maps");
+  await page.unroute("https://nominatim.openstreetmap.org/**");
 
   console.log("— phase 4b: identity (new names + icons) —");
   const activeAppName = await page.locator('[data-testid="menubar-active-app"]').innerText();

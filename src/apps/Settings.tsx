@@ -230,7 +230,7 @@ export default function Settings({ win }: { win: WinState }) {
             </div>
             <div className="text-[22px] font-bold tracking-tight">URUK OS</div>
             <div className="mb-5 text-[13px] text-neutral-500 dark:text-neutral-400">
-              Version 0.5.0 · Browser build
+              Version 0.6.0 · Browser build
             </div>
             <dl className="w-full max-w-sm space-y-2 text-left text-[13px]">
               <div className="flex justify-between border-b border-black/5 pb-1.5 dark:border-white/5">

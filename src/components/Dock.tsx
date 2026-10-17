@@ -16,6 +16,10 @@ const DOCK_APPS: AppId[] = [
   "calculator",
   "calendar",
   "music",
+  "clock",
+  "weather",
+  "maps",
+  "tools",
   "settings",
 ];
 const BASE = 52;

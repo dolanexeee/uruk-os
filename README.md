@@ -1,14 +1,14 @@
 # URUK OS
 
-**A complete desktop operating system that runs entirely in your web browser.** Boot it, pick your account (or create one — it lives on your device, no server, no sign-up), and you get a working desktop — a window manager, a Dock, a menu bar, a real file system, twelve fully working apps with their own URUK identity, Spotlight search, a Control Center where every switch does something real, notifications, a PIN lock, full backup/restore, and a browser that loads the real web — and everything you create is still there when you come back.
+**A complete desktop operating system that runs entirely in your web browser.** Boot it, pick your account (or create one — it lives on your device, no server, no sign-up), and you get a working desktop — a window manager, a Dock, a menu bar, a real file system, sixteen fully working apps with their own URUK identity, Spotlight search, a Control Center where every switch does something real, notifications, a PIN lock, full backup/restore, and a browser that loads the real web — and everything you create is still there when you come back.
 
 [![Live demo](https://img.shields.io/badge/Live-uruk--os.vercel.app-0a84ff?style=flat-square)](https://uruk-os.vercel.app)
-[![Version](https://img.shields.io/badge/version-0.5.0-blue?style=flat-square)](https://github.com/dolanexeee/uruk-os)
-[![Tests](https://img.shields.io/badge/tests-138%2F138-brightgreen?style=flat-square)](#tests)
+[![Version](https://img.shields.io/badge/version-0.6.0-blue?style=flat-square)](https://github.com/dolanexeee/uruk-os)
+[![Tests](https://img.shields.io/badge/tests-191%2F191-brightgreen?style=flat-square)](#tests)
 [![License](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square)](LICENSE)
 
 - **Live:** https://uruk-os.vercel.app
-- **Version:** 0.5.0 (Phase 4: local accounts, a browser that loads real sites, Dock auto-hide, and the URUK identity)
+- **Version:** 0.6.0 (Phase 5: Uruk Code grows up — every major language highlighted, Python really running — plus Clepsydra, Adad, Two Rivers and Forge)
 - **Feature checklist:** [FEATURES.md](FEATURES.md) — every feature scored Done / Partial / Missing, nothing claimed without evidence
 - URUK OS is the second application in the **URUK** open-source suite (after [Uruk Cut](https://github.com/dolanexeee/uruk-cut)).
 
@@ -32,13 +32,15 @@ URUK OS is a **clean-room recreation of the desktop experience**, designed and w
 | **Accounts** — a local account per person, each with its own files | **Ishtar Gate** — the real Wikipedia, loaded through the built-in proxy |
 | ![Desktop with the identity Dock](qa/screenshots/25-desktop-identity.png) | ![Scribe](qa/screenshots/24-scribe.png) |
 | **Desktop** — the identity Dock under Ziggurat at Dusk | **Scribe** — the text editor, named for the first writers |
+| ![Python running in Uruk Code](qa/screenshots/26-code-python.png) | ![Adad forecast](qa/screenshots/29-adad-forecast.png) |
+| **Uruk Code** — real Python (Pyodide) printing 42 | **Adad** — current, hourly and 7-day weather for Baghdad |
 
 ## The system
 
 - **Boot + login** — boot screen with progress bar, then an account picker with a live clock: pick your account, create a new one (name + avatar color/symbol + optional PIN), or continue as Guest. Lock, log-out, and switch-user live in the URUK menu, the menu-bar user menu, and Control Center.
 - **Window manager** — open / close / minimize / maximize / restore, drag by the title bar, resize from all 8 directions, double-click title bar to zoom, traffic-light buttons with hover glyphs, focus z-ordering, animated open/close/minimize.
 - **Menu bar** — URUK menu (About This Machine, Lock Screen, Log Out), the active app's name and File menu (each app registers its own real actions), a Window menu listing every open window, Spotlight and Control Center buttons, a light/dark quick toggle, and a live clock that opens Notification Center.
-- **Dock** — the URUK identity icons for all twelve apps plus Plaza, hover magnification, running-app indicator dots, click to launch or focus, right-click for Open / New Window / Quit. **Auto-hide (on by default, toggle in Ukkin):** when a window is maximized the Dock slides away so the window owns the whole screen, and floats back when the pointer touches the bottom edge — just like macOS. The Shard icon's tooltip shows its item count.
+- **Dock** — the URUK identity icons for all sixteen apps plus Plaza, hover magnification, running-app indicator dots, click to launch or focus, right-click for Open / New Window / Quit. **Auto-hide (on by default, toggle in Ukkin):** when a window is maximized the Dock slides away so the window owns the whole screen, and floats back when the pointer touches the bottom edge — just like macOS. The Shard icon's tooltip shows its item count.
 - **A real file system** — a node tree stored in **IndexedDB**, shared by every app and the desktop. Seeded with Desktop / Documents / Downloads / Pictures / Trash plus a welcome file and an original sample picture. Full create / rename / move / trash / restore / empty-trash / import. **Drag real files from your computer onto the desktop or a Finder window to import them** — they are stored as blobs and persist across reloads.
 - **Uruk Files** — sidebar favorites, back/forward history, grid & list views, name search, New Folder with inline rename, right-click menus (Open, Rename, Move to…, Move to Trash, Get Info with real metadata), Empty Trash, and a live storage readout (`navigator.storage.estimate()`).
 - **Uruk Shell (`uruksh`)** — a real interpreter over the same file system: `pwd ls (-l) cd mkdir touch cat echo (> and >>) rm (-r) mv cp (-r) clear help whoami date open <app|path>` and `urukfetch` (ASCII logo + live system data). Command history with ↑/↓, quoted paths, Unix-plausible errors.
@@ -56,7 +58,7 @@ URUK OS is a **clean-room recreation of the desktop experience**, designed and w
 - **Nanna** — real month math, today highlighted, month navigation + Today jump. Events (title, time, notes) are stored as **a plain JSON file at `Calendar/events.json`** in the file system — `cat` it in Terminal to see your data. Add / edit / delete, all persistent.
 - **Lyre** — the library is the `Music` folder plus an "All Audio" scan of the whole file system. Real playback: play/pause, seek, volume, next/prev, shuffle, repeat (off/all/one), durations read from the files' own metadata, now-playing in the window title, and import.
 - **Ishtar Gate** — the browser: tabs, an address bar that takes URLs or search terms (DuckDuckGo HTML), back/forward/reload/home, a start page with quick links, and an always-visible **Open in real tab** button. Pages load through the OS's own **same-origin proxy** (below), so sites that refuse framing still render here; YouTube watch pages become the official embed player.
-- **Uruk Code** — a real code editor (CodeMirror 6): multiple file tabs, syntax highlighting for JavaScript/TypeScript/HTML/CSS/JSON/Python/Markdown, line numbers, Ctrl+S save into the file system, font-size control, and a theme that follows the system appearance. **Run** executes JavaScript in a sandboxed iframe and streams `console.log/warn/error` into an output pane; **Preview** renders HTML files in a sandboxed pane.
+- **Uruk Code** — a real code editor (CodeMirror 6): multiple file tabs, line numbers, Ctrl+S save into the file system, font-size control, a theme that follows the system appearance, and a proper language registry — see Phase 5 for what it grew into.
 
 ## Phase 3 — the system layer
 
@@ -80,7 +82,16 @@ URUK OS is a **clean-room recreation of the desktop experience**, designed and w
 - **Local accounts** — the login screen is now an account picker. Create an account with a display name, an avatar (color + symbol), and an optional PIN (stored only as a salted SHA-256 hash, per account). **Every account is a separate machine-within-the-machine:** its own IndexedDB file-system database, its own settings (wallpaper, accent, appearance, weather city, volume…), its own notifications. Switch users from the menu bar; delete an account in Ukkin → Account and only that account's data is erased. **Guest mode** gets its own clearly-labeled space that sees none of the accounts' files. Accounts from before this feature are migrated, not wiped: the existing file system and settings become the first account (default name "Mustafa", renameable). Honest framing: these accounts live **on this device, in this browser** — local-first and $0, with no server and no sign-up; moving between devices is the .urukos backup or the experimental bring-your-own-Supabase sync.
 - **A browser that loads real sites** — Ishtar Gate no longer iframes the web directly. The OS ships a same-origin proxy (`/api/proxy`) that fetches pages server-side with a desktop user-agent, follows redirects, and rewrites their URLs (links, images, stylesheets, scripts, forms) back through itself, so pages render inside the OS — Wikipedia, news, documentation, and reference sites included. The proxy is SSRF-guarded (http/https only; loopback, private, and link-local targets are refused), forwards **no cookies**, and when a fetch fails the browser shows an honest error state with an "Open in real tab" action. YouTube watch URLs open as the youtube-nocookie embed. The honest limit of any rewriting proxy stands: logins don't persist, and JavaScript-heavy web apps (Gmail, banking, X) may not fully work through it — content sites are the target.
 - **Dock auto-hide** — macOS behavior: maximize a window and the Dock slides off the bottom of the screen; move the pointer to the bottom edge and it floats back; move away and it hides again. On by default; Ukkin → Appearance turns it off.
-- **The URUK identity** — every app now carries a Mesopotamian name and an original icon from the approved set in `design/` (sources in `design/icons/`, rationale in `design/NAMES.md`): **Uruk Files, Uruk Shell, Scribe, Ukkin, Shamash Gallery, Shamash Eye, Tablet, Abacus, Nanna, Lyre, Ishtar Gate, Plaza, Shard** — and **Uruk Code**, which kept its name and got wedge-cut brackets. Even the generic folder is gold and the generic file is written in cuneiform wedges. Internal app ids never changed, so file associations and saved data are untouched. Icons for four future apps — Clepsydra (clock), Adad (weather), Two Rivers (maps), Forge (tools) — are already in the set, waiting for their phase.
+- **The URUK identity** — every app now carries a Mesopotamian name and an original icon from the approved set in `design/` (sources in `design/icons/`, rationale in `design/NAMES.md`): **Uruk Files, Uruk Shell, Scribe, Ukkin, Shamash Gallery, Shamash Eye, Tablet, Abacus, Nanna, Lyre, Ishtar Gate, Plaza, Shard** — and **Uruk Code**, which kept its name and got wedge-cut brackets. Even the generic folder is gold and the generic file is written in cuneiform wedges. Internal app ids never changed, so file associations and saved data are untouched. Icons for four future apps — Clepsydra (clock), Adad (weather), Two Rivers (maps), Forge (tools) — were drawn in this phase too; they became real apps in Phase 5.
+
+## Phase 5 — programming depth + the last four apps
+
+- **Uruk Code, all languages** — the editor's language support is now a registry (`src/lib/languages.ts`): JavaScript, TypeScript, JSX/TSX, Python, HTML, CSS, JSON, Markdown, **C, C++, Java, Rust, Go, PHP, SQL, XML, YAML and Shell**, selected by file extension or by the manual switcher in the tab bar; unknown extensions stay plain text. The test suite verifies the *actual parse* (a Rust file's Lezer tree contains `FunctionItem` nodes, a C file's contains `FunctionDefinition`), not just that nothing crashed.
+- **Running, in honest tiers** — JavaScript/TypeScript run in the sandboxed iframe with console capture; HTML previews; and **Python really runs**: CPython compiled to WebAssembly (Pyodide 0.27.5), loaded lazily from the official jsDelivr CDN on the first Python run (~10 MB, then browser-cached). The running file's folder is bridged into Python's in-memory file system, so `open("sibling.txt")` reads your real files; `input()` reads lines from a stdin box in the output pane. C, C++, Java, Rust, Go and the rest get **no Run button** — a banner says "Editing + highlighting only" instead of pretending. If the runtime can't be fetched (offline, Wi-Fi off), the pane says exactly that; nothing is ever faked. A **templates picker** (Python / JavaScript / HTML / C / Java / Rust / Go / SQL starters) creates real files in the file system.
+- **Clepsydra** (clock) — world clock with Baghdad + Edmonton by default and add/remove from a 13-city preset list (persisted per account), a stopwatch with laps, and a timer that fires a real OS notification when it finishes — banner plus a Notification Center entry, Do Not Disturb respected.
+- **Adad** (weather) — the full forecast on the same Open-Meteo data layer as the widget: current conditions (feels-like, humidity, wind), the next 24 hours, and 7 days. City search via the Open-Meteo geocoding API; the default city comes from Ukkin, and choosing a city in Adad updates the system city, so the app and the widget can never disagree.
+- **Two Rivers** (maps) — OpenStreetMap's own embed viewer centered on Baghdad, with Nominatim search: pick a result and the embed re-centers on its real bounding box with a marker. An "Open in real tab" fallback sits beside the search, and with the OS Wi-Fi off the app says so honestly instead of embedding a dead frame.
+- **Forge** (tools) — the workshop: JSON format/minify/validate with error **line, column and position** from a hand-written scanner; Base64 and URL codecs (UTF-8 safe); UUID generator (1 or 10, copy per item or all); SHA-256 via WebCrypto; a color picker with HEX/RGB/HSL conversion; a regex tester with counted, highlighted matches; and a text counter. Everything computes locally — nothing leaves the machine.
 
 ## Storage: local-first, $0, yours
 
@@ -95,6 +106,8 @@ There is no account server. Each local account's file system lives in its own **
 
 - Ishtar Gate loads pages through a rewriting proxy: logins do not persist (no cookies are forwarded), and JavaScript-heavy web apps that mint their own absolute URLs or require websockets/service workers may not fully work. When the proxy cannot fetch a page it says so and offers "Open in real tab" instead of faking success.
 - Weather needs internet; offline it shows the last fetched reading (marked cached) or "unavailable" — never a made-up forecast.
+- Python in Uruk Code runs on Pyodide, fetched from a CDN on first use (~10 MB): it needs internet once (per browser), and a Python script shares the page's main thread, so an infinite loop will freeze the tab — the same trade every in-browser Python makes. TypeScript runs as JavaScript in the sandbox: type annotations are not stripped or checked. C/C++/Java/Rust/Go are editing + highlighting only — no browser can honestly run them today.
+- Two Rivers renders openstreetmap.org's embed, whose current renderer needs WebGL; browsers with WebGL disabled get OSM's own fallback message inside the frame (the app still searches and re-centers correctly).
 - Supabase sync is experimental and unverified against a live project (see above).
 - The storage >85% warning producer is implemented but impractical to trigger within a test browser's quota, so it is marked Partial in FEATURES.md.
 - Finder moves files via right-click **Move to…**; drag-between-folders is not implemented.
@@ -113,10 +126,11 @@ npm run dev       # or the Next.js dev server
 
 ```bash
 npm run build
-node qa/run-tests.mjs   # Playwright (Chromium) against the production server build
+node qa/run-tests.mjs      # Playwright (Chromium) against the production server build
+node qa/python-smoke.mjs   # Firefox + network: the live Pyodide + Nominatim checks
 ```
 
-**138/138 checks green** (29 Phase 1 + 35 Phase 2 + 36 Phase 3 + 33 Phase 4A + 5 Phase 4B). Phase 4A proves, end-to-end: the full account lifecycle (create B with a PIN → marker file + wallpaper → switch to A → marker invisible and wallpaper different → wrong PIN rejected → correct PIN → everything intact; guest sees neither account's files); the proxy serving example.org and the Wikipedia “Uruk” article (HTTP 200, real content, rewritten URLs) and refusing loopback/private targets; Ishtar Gate rendering both sites in-app with the address bar tracking the real URL; and Dock auto-hide (maximize → hidden → bottom-edge hover → revealed → unmaximize → back). Phase 4B proves the identity: Plaza lists Ishtar Gate / Ukkin / Tablet / Nanna, and Plaza launches Scribe under its own name. Phase 3 proved: Spotlight finding a file by name, a note by its *contents*, and a calendar event — and opening each correctly; Launchpad launching Calculator; Control Center brightness changing the applied dim value and surviving a reload, and its volume being the Music app's volume; Wi-Fi OFF forcing the Browser's offline state and ON restoring the page; a calendar event due in minutes raising a banner that lands in Notification Center; the full PIN cycle (set 2468 → lock → wrong PIN rejected → correct PIN unlocks → PIN removed); a backup round-trip (export a ZIP with a valid manifest → delete the marker file → import with Replace → the file is back with its content); and the screensaver fading in on the 10-second test idle and waking to the lock screen. Earlier phases cover everything from calculator precedence and `cat`-verified notes to real audio playback and file-association routing. Screenshots live in `qa/screenshots/`.
+**191/191 checks green** (29 Phase 1 + 35 Phase 2 + 36 Phase 3 + 33 Phase 4A + 5 Phase 4B + 53 Phase 5), **plus 7/7** in the Firefox smoke. Phase 5 proves: per-language modes with real parse-tree assertions (Rust `FunctionItem`, C `FunctionDefinition`), the manual language switcher, TypeScript executing in the sandbox, the offline Python failure state (the sandbox Chromium has no internet, so the honest path is what it can reach), template files landing in Uruk Files as real files, a Clepsydra lap + a 3-second timer landing in Notification Center, every Forge tool against reference values (including SHA-256("uruk") vs the known digest), Adad rendering route-mocked Open-Meteo fixtures (Baghdad 31° → Edmonton 5° via search), and the Two Rivers embed moving to a mocked Nominatim bounding box. The Firefox smoke (`qa/python-smoke.mjs`) proves the live side: Python `print(6*7)` → **42**, the sibling-file bridge, sum-of-squares → **285**, `input()` fed from the stdin box, and a live Nominatim search re-centering the map on Baghdad. Phase 4A proves, end-to-end: the full account lifecycle (create B with a PIN → marker file + wallpaper → switch to A → marker invisible and wallpaper different → wrong PIN rejected → correct PIN → everything intact; guest sees neither account's files); the proxy serving example.org and the Wikipedia “Uruk” article (HTTP 200, real content, rewritten URLs) and refusing loopback/private targets; Ishtar Gate rendering both sites in-app with the address bar tracking the real URL; and Dock auto-hide (maximize → hidden → bottom-edge hover → revealed → unmaximize → back). Phase 4B proves the identity: Plaza lists Ishtar Gate / Ukkin / Tablet / Nanna, and Plaza launches Scribe under its own name. Phase 3 proved: Spotlight finding a file by name, a note by its *contents*, and a calendar event — and opening each correctly; Launchpad launching Calculator; Control Center brightness changing the applied dim value and surviving a reload, and its volume being the Music app's volume; Wi-Fi OFF forcing the Browser's offline state and ON restoring the page; a calendar event due in minutes raising a banner that lands in Notification Center; the full PIN cycle (set 2468 → lock → wrong PIN rejected → correct PIN unlocks → PIN removed); a backup round-trip (export a ZIP with a valid manifest → delete the marker file → import with Replace → the file is back with its content); and the screensaver fading in on the 10-second test idle and waking to the lock screen. Earlier phases cover everything from calculator precedence and `cat`-verified notes to real audio playback and file-association routing. Screenshots live in `qa/screenshots/`.
 
 ## Layout
 
@@ -129,6 +143,8 @@ src/
   lib/backup.ts        .urukos backup/restore (ZIP + JSON snapshot forms)
   lib/sync.ts          experimental bring-your-own Supabase sync
   lib/weather.ts       Open-Meteo client (no key) with an honest cache
+  lib/languages.ts     Uruk Code's language registry + file templates
+  lib/pyodide.ts       the Python runner: lazy Pyodide + the FS bridge
   lib/security.ts      PIN hashing (salted SHA-256) + verification
   store/os.ts          window manager, session, settings (Zustand)
   store/system.ts      Control Center state: brightness, Wi-Fi, DND, volume, panels
@@ -137,7 +153,8 @@ src/
                        Control Center, Notification Center, screensaver, icons
   apps/                Uruk Files, Uruk Shell, Scribe, Ukkin, Shamash Gallery,
                        Shamash Eye, Tablet, Abacus, Nanna, Lyre, Ishtar Gate,
-                       Uruk Code (one file each; internal ids unchanged)
+                       Uruk Code, Clepsydra, Adad, Two Rivers, Forge
+                       (one file each; internal ids unchanged)
   app/api/proxy/       the same-origin page proxy Ishtar Gate browses through
 public/icons/          the approved URUK identity icon set (sources in design/icons/)
 design/                NAMES.md (naming rationale) + icons/ (identity sources)
@@ -146,7 +163,7 @@ public/fixtures/       local test pages the browser suite renders (no network ne
 
 ## Roadmap
 
-Next: a bootable Linux ISO edition carrying the same URUK identity, and the four apps whose icons already exist — Clepsydra, Adad, Two Rivers, Forge. Phases 1–4 (shell, app suite, system layer, accounts + real browsing + identity) are complete — see [FEATURES.md](FEATURES.md) for the scored checklist.
+Next: a bootable Linux ISO edition carrying the same URUK identity. Phases 1–5 (shell, app suite, system layer, accounts + real browsing + identity, programming depth + the last four apps) are complete — see [FEATURES.md](FEATURES.md) for the scored checklist.
 
 ## License
 

@@ -280,7 +280,7 @@ export function resolvePath(nodes: NodeMap, cwdId: string, raw: string): string 
   return curId;
 }
 
-const TEXT_EXT = /\.(txt|md|markdown|json|js|ts|tsx|css|html|csv|svg|log|sh|py|yml|yaml|xml)$/i;
+const TEXT_EXT = /\.(txt|md|markdown|json|js|jsx|ts|tsx|css|html|csv|svg|log|sh|py|yml|yaml|xml|c|h|cpp|cc|cxx|hpp|java|rs|go|php|sql)$/i;
 export function isTextLike(name: string, mime: string): boolean {
   return mime.startsWith("text/") || TEXT_EXT.test(name) || mime === "image/svg+xml";
 }

@@ -40,6 +40,10 @@ import Calendar from "@/apps/Calendar";
 import Music from "@/apps/Music";
 import BrowserApp from "@/apps/Browser";
 import Code from "@/apps/Code";
+import Clock from "@/apps/Clock";
+import Weather from "@/apps/Weather";
+import Maps from "@/apps/Maps";
+import Tools from "@/apps/Tools";
 import { openFileNode } from "@/lib/associations";
 
 const APP_COMPONENTS: Record<AppId, React.ComponentType<{ win: never }>> = {
@@ -55,6 +59,10 @@ const APP_COMPONENTS: Record<AppId, React.ComponentType<{ win: never }>> = {
   music: Music as never,
   browser: BrowserApp as never,
   code: Code as never,
+  clock: Clock as never,
+  weather: Weather as never,
+  maps: Maps as never,
+  tools: Tools as never,
 };
 
 /* ------------------------------------------------------------------ */

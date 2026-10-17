@@ -1,16 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EditorView, keymap } from "@codemirror/view";
-import { Compartment, EditorState, Prec, type Extension } from "@codemirror/state";
+import { Compartment, EditorState, Prec } from "@codemirror/state";
 import { basicSetup } from "codemirror";
-import { javascript } from "@codemirror/lang-javascript";
-import { html } from "@codemirror/lang-html";
-import { css } from "@codemirror/lang-css";
-import { json } from "@codemirror/lang-json";
-import { python } from "@codemirror/lang-python";
-import { markdown } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
+import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import {
   ROOT_ID,
+  childrenOf,
   isTextLike,
   pathOf,
   readNodeText,
@@ -18,40 +14,32 @@ import {
   type FSNode,
 } from "@/lib/fs";
 import { extOf } from "@/lib/associations";
+import {
+  FILE_TEMPLATES,
+  LANGUAGES,
+  PLAIN_LANGUAGE,
+  languageById,
+  languageForName,
+  type LanguageDef,
+} from "@/lib/languages";
+import { isPythonReady, runPython, type BridgeFile } from "@/lib/pyodide";
 import { useOS, type WinState } from "@/store/os";
+import { useSystem } from "@/store/system";
 
 /**
  * Uruk Code — a real code editor over the file system.
- * CodeMirror 6 with tabs, syntax highlighting for JS/TS/HTML/CSS/JSON/
- * Python/Markdown, Ctrl+S save, a sandboxed JavaScript runner whose
- * console output lands in the pane below, and an HTML preview pane.
+ *
+ * CodeMirror 6 with tabs and a language registry (lib/languages.ts)
+ * covering JavaScript/TypeScript/JSX/TSX, Python, HTML, CSS, JSON,
+ * Markdown, C, C++, Java, Rust, Go, PHP, SQL, XML, YAML and Shell —
+ * chosen by file extension or the manual switcher in the tab bar.
+ * Ctrl+S saves into the file system. Running is honest about what a
+ * browser can do: JavaScript/TypeScript execute in a sandboxed iframe
+ * with console capture, HTML previews in a sandboxed pane, Python
+ * runs on real CPython-in-WASM (Pyodide, lazily loaded), and every
+ * other language shows an "editing + highlighting only" note instead
+ * of a Run button that could not keep its promise.
  */
-
-function languageFor(name: string): Extension {
-  const ext = extOf(name);
-  switch (ext) {
-    case "js":
-    case "jsx":
-      return javascript({ jsx: true });
-    case "ts":
-      return javascript({ typescript: true });
-    case "tsx":
-      return javascript({ typescript: true, jsx: true });
-    case "html":
-    case "htm":
-      return html();
-    case "css":
-      return css();
-    case "json":
-      return json();
-    case "py":
-      return python();
-    case "md":
-      return markdown();
-    default:
-      return [];
-  }
-}
 
 interface OutputEntry {
   type: "log" | "warn" | "error" | "info";
@@ -85,6 +73,14 @@ export default function Code({ win }: { win: WinState }) {
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState("script.js");
   const [newFolder, setNewFolder] = useState<string>("folder-documents");
+  const [templateId, setTemplateId] = useState("blank");
+  /** Manual per-file language choice (tab-bar switcher); wins over the extension. */
+  const [langOverride, setLangOverride] = useState<Record<string, string>>({});
+  /** Text fed to Python's input() on the next run. */
+  const [stdinText, setStdinText] = useState("");
+  const [pyBusy, setPyBusy] = useState(false);
+  /** Lezer node names of the active document — the parse, made visible. */
+  const [tokensAttr, setTokensAttr] = useState("");
 
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -98,9 +94,13 @@ export default function Code({ win }: { win: WinState }) {
   const runTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeNode = activeId ? nodes[activeId] : undefined;
-  const activeExt = activeNode ? extOf(activeNode.name) : "";
-  const isJs = activeExt === "js" || activeExt === "jsx";
-  const isHtml = activeExt === "html" || activeExt === "htm";
+  const activeLang: LanguageDef = activeNode
+    ? (languageById(activeId ? langOverride[activeId] : undefined) ??
+      languageForName(activeNode.name))
+    : PLAIN_LANGUAGE;
+  const isJs = activeLang.run === "js";
+  const isHtml = activeLang.run === "html";
+  const isPy = activeLang.run === "python";
 
   /* ------------------------- editor lifecycle ------------------------- */
 
@@ -110,7 +110,7 @@ export default function Code({ win }: { win: WinState }) {
         doc,
         extensions: [
           basicSetup,
-          langComp.current.of(languageFor(name)),
+          langComp.current.of(languageForName(name).make()),
           themeComp.current.of(appearance === "dark" ? oneDark : []),
           Prec.highest(
             keymap.of([
@@ -201,15 +201,42 @@ export default function Code({ win }: { win: WinState }) {
     });
   }, [appearance]);
 
-  /* language follows the active file */
+  /* language follows the active file (+ any manual override) */
   useEffect(() => {
     const view = viewRef.current;
     if (!view || !activeNode) return;
     view.dispatch({
-      effects: langComp.current.reconfigure(languageFor(activeNode.name)),
+      effects: langComp.current.reconfigure(activeLang.make()),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId]);
+  }, [activeId, activeLang.id]);
+
+  /* Expose the real parse: Lezer node names of the active document. */
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !activeId) {
+      setTokensAttr("");
+      return;
+    }
+    const compute = () => {
+      const v = viewRef.current;
+      if (!v) return;
+      const tree =
+        ensureSyntaxTree(v.state, v.state.doc.length, 800) ?? syntaxTree(v.state);
+      const names = new Set<string>();
+      tree.iterate({
+        enter: (n) => {
+          names.add(n.name);
+          if (names.size >= 80) return false;
+        },
+      });
+      setTokensAttr([...names].join(" "));
+    };
+    compute();
+    const t = setTimeout(compute, 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, activeLang.id, activeId ? dirty[activeId] : false]);
 
   useEffect(() => {
     os.setWindowTitle(
@@ -256,7 +283,7 @@ export default function Code({ win }: { win: WinState }) {
 
   /* --------------------------- JS runner ------------------------------ */
 
-  const run = useCallback(() => {
+  const runJs = useCallback(() => {
     const view = viewRef.current;
     if (!view || !activeRef.current || !isJs) return;
     const code = view.state.doc.toString();
@@ -300,8 +327,99 @@ export default function Code({ win }: { win: WinState }) {
     }, 4000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isJs]);
-  const runRef = useRef(run);
-  runRef.current = run;
+
+  /* ------------------------- Python runner ---------------------------- */
+
+  const pushOut = useCallback((type: OutputEntry["type"], text: string) => {
+    setOutput((o) => [...o.slice(-299), { type, text }]);
+  }, []);
+
+  const runPythonFile = useCallback(async () => {
+    const view = viewRef.current;
+    const id = activeRef.current;
+    if (!view || !id || pyBusy) return;
+    const node = fs().nodes[id];
+    if (!node) return;
+    const code = view.state.doc.toString();
+    setPanel("output");
+    setOutput([]);
+    setRunStamp(new Date().toLocaleTimeString());
+    setPyBusy(true);
+    const started = Date.now();
+
+    if (!useSystem.getState().wifiOn) {
+      pushOut(
+        "error",
+        "Couldn't load the Python runtime — the OS Wi-Fi switch is off. Turn Wi-Fi on in Control Center and run again.",
+      );
+      setPyBusy(false);
+      return;
+    }
+    if (!isPythonReady()) {
+      pushOut(
+        "info",
+        "Loading Python runtime… first run downloads CPython-in-WebAssembly (~10 MB) from the Pyodide CDN; your browser caches it for later runs.",
+      );
+    }
+
+    // Bridge set: the text files sharing this file's folder.
+    const siblings: BridgeFile[] = [];
+    if (node.parentId) {
+      for (const sib of childrenOf(fs().nodes, node.parentId)) {
+        if (sib.type !== "file" || sib.id === id) continue;
+        if (sib.blob && !sib.mime.startsWith("text/")) continue;
+        try {
+          const text = await readNodeText(sib);
+          if (text.length <= 512 * 1024) siblings.push({ name: sib.name, text });
+        } catch {
+          /* skip unreadable siblings */
+        }
+      }
+    }
+
+    try {
+      await runPython({
+        fileName: node.name,
+        code,
+        siblings,
+        stdinText,
+        onLine: (type, text) => pushOut(type, text),
+      });
+      pushOut("info", `— finished in ${((Date.now() - started) / 1000).toFixed(1)}s —`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!isPythonReady()) {
+        pushOut(
+          "error",
+          "Couldn't load the Python runtime — check your connection and run again. (Python runs on Pyodide, fetched from cdn.jsdelivr.net; nothing is faked when it can't load.)",
+        );
+        pushOut("info", msg.slice(0, 300));
+      } else if (msg.includes("EOFError")) {
+        for (const line of msg.split("\n").filter(Boolean).slice(-14)) pushOut("error", line);
+        pushOut(
+          "info",
+          "input() ran out of stdin — type the lines it should read into the stdin box above the output and run again.",
+        );
+      } else {
+        for (const line of msg.split("\n").filter(Boolean).slice(-14)) pushOut("error", line);
+      }
+    } finally {
+      setPyBusy(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pyBusy, stdinText, pushOut]);
+
+  const previewRef = useRef<() => void>(() => {});
+
+  /* Run dispatches on the active language's honest capability. */
+  const runActive = useCallback(() => {
+    if (isPy) void runPythonFile();
+    else if (isJs) runJs();
+    else if (isHtml) previewRef.current();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPy, isJs, isHtml, runPythonFile, runJs]);
+  const runRef = useRef(runActive);
+  runRef.current = runActive;
 
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
@@ -323,6 +441,7 @@ export default function Code({ win }: { win: WinState }) {
     setPreviewDoc(view.state.doc.toString());
     setPanel("preview");
   }, []);
+  previewRef.current = preview;
 
   /* --------------------------- file menu ------------------------------ */
 
@@ -333,20 +452,32 @@ export default function Code({ win }: { win: WinState }) {
       { label: "New File…", action: () => setShowNewForm(true) },
       { label: "Open File…", action: () => setShowOpenList(true) },
       ...(isJs
-        ? [{ label: "Run JavaScript", action: run }]
-        : isHtml
-          ? [{ label: "Preview HTML", action: preview }]
-          : []),
+        ? [{ label: "Run JavaScript", action: runActive }]
+        : isPy
+          ? [{ label: "Run Python", action: runActive }]
+          : isHtml
+            ? [{ label: "Preview HTML", action: preview }]
+            : []),
     ]);
     return () => os.setFileMenuItems(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focused, activeId, isJs, isHtml, save, run, preview]);
+  }, [focused, activeId, isJs, isPy, isHtml, save, runActive, preview]);
 
   /* --------------------------- new file ------------------------------- */
 
+  const pickTemplate = (id: string) => {
+    setTemplateId(id);
+    const tpl = FILE_TEMPLATES.find((t) => t.id === id);
+    if (tpl) setNewName(tpl.fileName);
+  };
+
   const createFile = async () => {
     const name = newName.trim() || "script.js";
-    const created = await fs().createFile(newFolder, name, { text: "", dedupe: true });
+    const tpl = FILE_TEMPLATES.find((t) => t.id === templateId);
+    const created = await fs().createFile(newFolder, name, {
+      text: tpl && tpl.id !== "blank" ? tpl.body : "",
+      dedupe: true,
+    });
     setShowNewForm(false);
     await openFile(created.id);
     viewRef.current?.focus();
@@ -432,13 +563,14 @@ export default function Code({ win }: { win: WinState }) {
           >
             Save
           </button>
-          {isJs && (
+          {(isJs || isPy) && (
             <button
               data-testid="code-run"
-              className="rounded bg-emerald-600 px-2.5 py-0.5 text-[12.5px] font-medium text-white hover:bg-emerald-500"
-              onClick={run}
+              disabled={isPy && pyBusy}
+              className="rounded bg-emerald-600 px-2.5 py-0.5 text-[12.5px] font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+              onClick={runActive}
             >
-              ▶ Run
+              {isPy && pyBusy ? "Running…" : "▶ Run"}
             </button>
           )}
           {isHtml && (
@@ -449,6 +581,24 @@ export default function Code({ win }: { win: WinState }) {
             >
               Preview
             </button>
+          )}
+          {activeNode && (
+            <select
+              data-testid="code-lang-select"
+              aria-label="Language"
+              value={activeLang.id}
+              onChange={(e) => {
+                if (!activeId) return;
+                setLangOverride((o) => ({ ...o, [activeId]: e.target.value }));
+              }}
+              className="max-w-[110px] rounded border border-black/10 bg-white px-1 py-0.5 text-[12px] outline-none dark:border-white/10 dark:bg-neutral-900"
+            >
+              {[...LANGUAGES, PLAIN_LANGUAGE].map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
           )}
           <span className="mx-1 h-4 w-px bg-black/10 dark:bg-white/15" />
           <button
@@ -468,6 +618,17 @@ export default function Code({ win }: { win: WinState }) {
           </button>
         </div>
       </div>
+
+      {/* honest capability note for edit-only languages */}
+      {activeNode && activeLang.run === null && (
+        <div
+          data-testid="code-hl-note"
+          className="border-b border-black/10 bg-amber-50 px-3 py-1 text-[12px] text-amber-800 dark:border-white/10 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          Editing + highlighting only — {activeLang.label} can&apos;t run inside a
+          browser yet. (JavaScript, TypeScript, HTML and Python run here for real.)
+        </div>
+      )}
 
       {/* open-file picker */}
       {showOpenList && (
@@ -494,6 +655,21 @@ export default function Code({ win }: { win: WinState }) {
       {/* new-file form */}
       {showNewForm && (
         <div className="flex items-end gap-2 border-b border-black/10 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-neutral-800" data-testid="code-new-form">
+          <label>
+            <span className="mb-0.5 block text-[11px] text-neutral-500 dark:text-neutral-400">Template</span>
+            <select
+              data-testid="code-template-select"
+              value={templateId}
+              onChange={(e) => pickTemplate(e.target.value)}
+              className="rounded-md border border-black/10 bg-white px-2 py-1 text-[13px] outline-none dark:border-white/10 dark:bg-neutral-900"
+            >
+              {FILE_TEMPLATES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="flex-1">
             <span className="mb-0.5 block text-[11px] text-neutral-500 dark:text-neutral-400">File name</span>
             <input
@@ -534,13 +710,17 @@ export default function Code({ win }: { win: WinState }) {
         <div
           ref={hostRef}
           data-testid="code-editor"
+          data-language={activeLang.id}
+          data-tokens={tokensAttr}
           className="absolute inset-0 overflow-hidden [&_.cm-editor]:h-full [&_.cm-scroller]:overflow-auto"
           style={{ fontSize }}
         />
         {openIds.length === 0 && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-[13px] leading-6 text-neutral-400">
-            Open a file, or create one — JavaScript files can run right
-            here, HTML files preview in place.
+            Open a file, or create one from a template — JavaScript,
+            TypeScript and Python run right here, HTML previews in place,
+            and C, C++, Java, Rust, Go, PHP, SQL and more get full
+            syntax highlighting.
           </div>
         )}
       </div>
@@ -577,6 +757,26 @@ export default function Code({ win }: { win: WinState }) {
               ✕
             </button>
           </div>
+          {panel === "output" && isPy && (
+            <div className="flex items-center gap-2 border-b border-black/10 bg-[#26282e] px-2.5 py-1.5 dark:border-white/10">
+              <label
+                htmlFor="code-stdin-input"
+                className="shrink-0 font-mono text-[11px] text-neutral-400"
+                title="Lines handed to Python's input() calls, in order"
+              >
+                stdin →
+              </label>
+              <textarea
+                id="code-stdin-input"
+                data-testid="code-stdin"
+                value={stdinText}
+                rows={1}
+                onChange={(e) => setStdinText(e.target.value)}
+                placeholder="lines for input(), one per line"
+                className="uruk-scroll min-w-0 flex-1 resize-none rounded border border-white/10 bg-[#1d1f24] px-2 py-1 font-mono text-[12px] text-neutral-100 outline-none placeholder:text-neutral-500"
+              />
+            </div>
+          )}
           {panel === "output" ? (
             <div className="uruk-scroll min-h-0 flex-1 overflow-y-auto bg-[#1d1f24] p-2.5 font-mono text-[12px] leading-[1.5]" data-testid="code-output">
               {output.length === 0 && <div className="text-neutral-500">Running…</div>}

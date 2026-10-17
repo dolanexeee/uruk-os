@@ -9,6 +9,9 @@ import { useOS, type AppId } from "@/store/os";
 
 export const CODE_EXTS = new Set([
   "js", "jsx", "ts", "tsx", "py", "html", "htm", "css", "json", "md", "sh",
+  // Phase 5: the wider programming surface Uruk Code highlights.
+  "c", "h", "cpp", "cc", "cxx", "hpp", "java", "rs", "go", "php", "sql",
+  "xml", "yaml", "yml",
 ]);
 
 export const IMAGE_EXTS = new Set([

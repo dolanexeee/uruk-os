@@ -17,7 +17,11 @@ export type AppId =
   | "calendar"
   | "music"
   | "browser"
-  | "code";
+  | "code"
+  | "clock"
+  | "weather"
+  | "maps"
+  | "tools";
 export type Phase = "boot" | "login" | "desktop";
 export type Appearance = "light" | "dark";
 
@@ -71,6 +75,10 @@ export const APP_NAMES: Record<AppId, string> = {
   music: "Lyre",
   browser: "Ishtar Gate",
   code: "Uruk Code",
+  clock: "Clepsydra",
+  weather: "Adad",
+  maps: "Two Rivers",
+  tools: "Forge",
 };
 
 const DEFAULT_RECTS: Record<AppId, { w: number; h: number }> = {
@@ -86,6 +94,10 @@ const DEFAULT_RECTS: Record<AppId, { w: number; h: number }> = {
   music: { w: 780, h: 540 },
   browser: { w: 980, h: 620 },
   code: { w: 940, h: 620 },
+  clock: { w: 720, h: 540 },
+  weather: { w: 860, h: 600 },
+  maps: { w: 980, h: 620 },
+  tools: { w: 860, h: 580 },
 };
 
 /** Apps that exist as a single window; re-opening focuses + merges props. */
@@ -98,6 +110,10 @@ export const SINGLE_INSTANCE: ReadonlySet<AppId> = new Set([
   "music",
   "browser",
   "code",
+  "clock",
+  "weather",
+  "maps",
+  "tools",
 ]);
 
 export const ACCENTS = [

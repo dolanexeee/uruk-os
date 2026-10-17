@@ -121,6 +121,22 @@ export function CodeIcon(props: IconProps) {
   return <IdentityIcon src="/icons/code.svg" {...props} />;
 }
 
+export function ClockIcon(props: IconProps) {
+  return <IdentityIcon src="/icons/clock.svg" {...props} />;
+}
+
+export function WeatherIcon(props: IconProps) {
+  return <IdentityIcon src="/icons/weather.svg" {...props} />;
+}
+
+export function MapsIcon(props: IconProps) {
+  return <IdentityIcon src="/icons/maps.svg" {...props} />;
+}
+
+export function ToolsIcon(props: IconProps) {
+  return <IdentityIcon src="/icons/tools.svg" {...props} />;
+}
+
 export function AppIcon({ app, size = 48, className }: { app: string; size?: number; className?: string }) {
   const props = { size, className };
   switch (app) {
@@ -148,6 +164,14 @@ export function AppIcon({ app, size = 48, className }: { app: string; size?: num
       return <BrowserIcon {...props} />;
     case "code":
       return <CodeIcon {...props} />;
+    case "clock":
+      return <ClockIcon {...props} />;
+    case "weather":
+      return <WeatherIcon {...props} />;
+    case "maps":
+      return <MapsIcon {...props} />;
+    case "tools":
+      return <ToolsIcon {...props} />;
     default:
       return <FileIcon {...props} />;
   }

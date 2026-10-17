@@ -2,11 +2,13 @@
 
 An honest, evidence-based inventory of the whole system, scored the same way
 as Uruk Cut's PARITY.md. **Done** means it works and is covered by the
-automated suite (`qa/run-tests.mjs`, 138/138 checks) or was verified by hand
-against the running system. **Partial** means it exists but with a stated
-gap. **Missing** means not built. Nothing is claimed without evidence.
+automated suite (`qa/run-tests.mjs`, 191/191 checks; the live-Python
+checks live in `qa/python-smoke.mjs`, 7/7, because they need a browser
+with real internet) or was verified by hand against the running system.
+**Partial** means it exists but with a stated gap. **Missing** means not
+built. Nothing is claimed without evidence.
 
-_Last updated: v0.5.0 (Phase 4A: accounts + real-browser proxy + Dock auto-hide; Phase 4B: URUK identity)._
+_Last updated: v0.6.0 (Phase 5: Uruk Code all-languages + Python runs; Clepsydra, Adad, Two Rivers, Forge)._
 
 ## Shell & system
 
@@ -59,7 +61,11 @@ _Last updated: v0.5.0 (Phase 4A: accounts + real-browser proxy + Dock auto-hide;
 | Nanna (Calendar) | ✅ Done | Events are a plain JSON file in the FS; reminders feed the notification engine |
 | Lyre (Music) | ✅ Done | Real playback, shuffle/repeat, volume shared with Control Center, now-playing published to Notification Center |
 | Ishtar Gate (browser) | ✅ Done | Tabs + history; pages load through the OS's same-origin proxy (`/api/proxy`) with URL rewriting, so framing-protected sites render in-app (suite: example.org + the Wikipedia "Uruk" article render inside it; the address bar tracks in-frame navigation). YouTube watch URLs become the nocookie embed. Proxy failures show an honest in-app state with "Open in real tab"; respects the Wi-Fi switch. Limits: no cookie forwarding (logins don't persist); JS-heavy web apps may not fully work through a rewriting proxy |
-| Uruk Code | ✅ Done | CodeMirror editor, multi-tab, real JavaScript execution in a sandboxed pane, HTML preview |
+| Uruk Code | ✅ Done | CodeMirror editor, multi-tab, Ctrl+S. **Languages** (registry-driven, by extension or the tab-bar switcher): JavaScript, TypeScript, JSX/TSX, Python, HTML, CSS, JSON, Markdown, C, C++, Java, Rust, Go, PHP, SQL, XML, YAML, Shell; unknown = plain text. The suite asserts the real Lezer parse (Rust `FunctionItem`, C `FunctionDefinition` tokens). **Run, honestly tiered:** JS/TS in the sandboxed iframe with console capture; HTML preview; **Python on Pyodide** (real CPython/WASM, lazily loaded from the jsDelivr CDN, ~10 MB first run then browser-cached) with the file's folder bridged into its FS and `input()` fed from a stdin box — proven live in `qa/python-smoke.mjs`: `print(6*7)` → 42, `open("sibling.txt")` bridge read, sum-of-squares → 285, `input()` round-trip. All other languages show an explicit "editing + highlighting only" note and NO Run button. New-file templates (Python/JS/HTML/C/Java/Rust/Go/SQL starters) write real files. Offline Python runs fail with an honest message, never fake output |
+| Clepsydra | ✅ Done | World clock (Baghdad + Edmonton default; add/remove from a 13-city preset list, persisted per account), stopwatch with laps, timer that fires a real notification (banner + Notification Center entry, DND respected). Suite: lap recorded, 3-second timer lands in the Center |
+| Adad | ✅ Done | Full weather on the shared Phase 3 data layer: current conditions, next 24 hours, 7-day forecast (Open-Meteo, no key); city search via Open-Meteo geocoding; default city from Ukkin, and picking a city updates the system city so the widget never disagrees. Suite: deterministic route-mocked fixtures assert rendered values (Baghdad 31°, hi/lo, 24 hours, 7 days; Edmonton search → 5°). Offline = cached reading marked as such, or an honest unavailable state |
+| Two Rivers | ✅ Done | OpenStreetMap embed (export/embed.html) centered on Baghdad with a marker; Nominatim search (direct, CORS-enabled) → selecting a result re-centers the embed on the result's bounding box; "Open in real tab" fallback; honest offline state when the OS Wi-Fi switch is off. Suite: mocked Nominatim → embed `src` moves to the fixture bbox; live Nominatim verified in `qa/python-smoke.mjs` |
+| Forge | ✅ Done | Tabbed utility suite, all local: JSON format/minify/validate (error line/column/position from a hand-written scanner), Base64 + URL codecs (UTF-8 safe), UUID generator (1/10, per-item + copy-all), SHA-256 via WebCrypto, color picker with HEX/RGB/HSL, regex tester (match count + highlighted matches), text counter (chars/words/lines). Suite: pretty-print, error position, Base64 round-trip, 10× UUID v4 shape, SHA-256("uruk") vs the reference digest, regex counts 3 highlighted matches |
 
 ## Editions
 
@@ -71,5 +77,5 @@ _Last updated: v0.5.0 (Phase 4A: accounts + real-browser proxy + Dock auto-hide;
 ## Score
 
 - Shell & system: 28 Done · 3 Partial · 0 Missing
-- Apps: 12 Done · 0 Partial · 0 Missing
+- Apps: 16 Done · 0 Partial · 0 Missing
 - Editions: 1 Done · 1 Missing (ISO is the next phase, by plan)
