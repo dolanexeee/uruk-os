@@ -1002,7 +1002,8 @@ async function main() {
   console.log("— phase 5b: python stdin guidance (input() with an empty stdin box) —");
   await page.click('[data-testid="dock-icon-terminal"]');
   await waitFor(() => page.locator('[data-testid="window-terminal"]').isVisible().catch(() => false));
-  await termType(page, `printf 'name = input("Name? ")\\nprint("MATCH" if name == "Abdula" else "DENIED")\\n' > Documents/namecheck.py`);
+  await termType(page, `echo 'name = input("Name? ")' > Documents/namecheck.py`);
+  await termType(page, `echo 'print("MATCH" if name == "Abdula" else "DENIED")' >> Documents/namecheck.py`);
   await closeWin("terminal");
   await page.click('[data-testid="dock-icon-code"]');
   await waitFor(() => page.locator('[data-testid="window-code"]').isVisible().catch(() => false));
