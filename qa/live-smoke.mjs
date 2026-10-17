@@ -15,6 +15,6 @@ await page.keyboard.type("urukfetch");
 await page.keyboard.press("Enter");
 await page.waitForTimeout(700);
 const txt = await page.locator('[data-testid="terminal"]').innerText();
-console.log("live urukfetch contains URUK OS 0.1.0:", txt.includes("URUK OS 0.1.0"));
+console.log("live urukfetch contains URUK OS 0.2.0:", txt.includes("URUK OS 0.2.0"));
 await page.screenshot({ path: "qa/screenshots/06-live-production.png" });
 await browser.close();

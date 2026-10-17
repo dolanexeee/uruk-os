@@ -96,7 +96,7 @@ export default function Terminal({ win }: { win: WinState }) {
     const info = [
       "mustafa@uruk-os",
       "────────────────",
-      "OS:        URUK OS 0.1.0 (browser build)",
+      "OS:        URUK OS 0.2.0 (browser build)",
       `Shell:     uruksh 1.0`,
       `Files:     ${Object.keys(n).length} nodes, ${(totalSize(n) / 1024).toFixed(1)} KB stored`,
       `Storage:   ${storageLine}`,
