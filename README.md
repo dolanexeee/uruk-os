@@ -3,12 +3,12 @@
 **A complete desktop operating system that runs entirely in your web browser.** Boot it, pick your account (or create one — it lives on your device, no server, no sign-up), and you get a working desktop — a window manager, a Dock, a menu bar, a real file system, sixteen fully working apps with their own URUK identity, Spotlight search, a Control Center where every switch does something real, notifications, a PIN lock, full backup/restore, and a browser that loads the real web — and everything you create is still there when you come back.
 
 [![Live demo](https://img.shields.io/badge/Live-uruk--os.vercel.app-0a84ff?style=flat-square)](https://uruk-os.vercel.app)
-[![Version](https://img.shields.io/badge/version-0.7.0-blue?style=flat-square)](https://github.com/dolanexeee/uruk-os)
-[![Tests](https://img.shields.io/badge/tests-199%2F199-brightgreen?style=flat-square)](#tests)
+[![Version](https://img.shields.io/badge/version-0.7.1-blue?style=flat-square)](https://github.com/dolanexeee/uruk-os)
+[![Tests](https://img.shields.io/badge/tests-217%2F217-brightgreen?style=flat-square)](#tests)
 [![License](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square)](LICENSE)
 
 - **Live:** https://uruk-os.vercel.app
-- **Version:** 0.7.0 (Phase 5 feature set, refined by real-world testing: friendlier Python stdin in Uruk Code — input() programs get guidance and a per-file remembered stdin box instead of a raw EOFError — plus a full interface polish pass)
+- **Version:** 0.7.1 (Phase 5 feature set, refined by real-world testing: friendlier Python stdin in Uruk Code — input() programs get guidance and a per-file remembered stdin box instead of a raw EOFError — plus a full interface polish pass, and a lock-screen fix: locking is now a pure overlay, so window contents and per-app session state — terminal history, unsaved editor buffers, drafts — survive lock/unlock and even a full reload)
 - **Feature checklist:** [FEATURES.md](FEATURES.md) — every feature scored Done / Partial / Missing, nothing claimed without evidence
 - URUK OS is the second application in the **URUK** open-source suite (after [Uruk Cut](https://github.com/dolanexeee/uruk-cut)).
 
@@ -100,7 +100,7 @@ There is no account server. Each local account's file system lives in its own **
 ## Editions
 
 - **Web edition** — this repo, live now. Open-source (Apache-2.0).
-- **ISO edition** — next: a bootable, URUK-branded Debian-based system (installable dual-boot or in VirtualBox) with the web OS bundled as a local app. Not started yet; see [FEATURES.md](FEATURES.md).
+- **ISO edition** — **released as URUK OS 1.0**: a bootable, URUK-branded Debian-based system (installable dual-boot or in VirtualBox) with the web OS bundled as a local app. QEMU boot-verified end to end. Download + full notes: **[URUK OS 1.0 — ISO Edition](https://github.com/dolanexeee/uruk-os/releases/tag/iso-1.0)**.
 
 ## Honest limitations
 
@@ -163,7 +163,7 @@ public/fixtures/       local test pages the browser suite renders (no network ne
 
 ## Roadmap
 
-Next: a bootable Linux ISO edition carrying the same URUK identity. Phases 1–5 (shell, app suite, system layer, accounts + real browsing + identity, programming depth + the last four apps) are complete — see [FEATURES.md](FEATURES.md) for the scored checklist.
+The bootable Linux ISO edition has shipped as **URUK OS 1.0** (see Editions above) carrying the same URUK identity. Phases 1–5 (shell, app suite, system layer, accounts + real browsing + identity, programming depth + the last four apps) are complete — see [FEATURES.md](FEATURES.md) for the scored checklist.
 
 ## License
 

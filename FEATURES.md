@@ -74,10 +74,10 @@ _Last updated: v0.7.1 (lock no longer wipes app state — see the "Session survi
 | Edition | Status | Notes |
 | --- | --- | --- |
 | Web (this repo) | ✅ Done | Live at https://uruk-os.vercel.app |
-| Bootable ISO (Debian-based, URUK-branded, installable / VirtualBox) | ❌ Missing | The next phase; not started |
+| Bootable ISO (Debian-based, URUK-branded, installable / VirtualBox) | ✅ Done | Released as URUK OS 1.0 — see the [iso-1.0 release](https://github.com/dolanexeee/uruk-os/releases/tag/iso-1.0); QEMU boot-verified (greeter, desktop, dock, URUK-branded Calamares). Full install path awaits a real-disk test |
 
 ## Score
 
 - Shell & system: 28 Done · 3 Partial · 0 Missing
 - Apps: 16 Done · 0 Partial · 0 Missing
-- Editions: 1 Done · 1 Missing (ISO is the next phase, by plan)
+- Editions: 2 Done · 0 Missing
