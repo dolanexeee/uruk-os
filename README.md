@@ -1,3 +1,5 @@
+<div align="center">
+
 # URUK OS
 
 **A complete desktop operating system that runs entirely in your web browser.** Boot it, pick your account (or create one — it lives on your device, no server, no sign-up), and you get a working desktop — a window manager, a Dock, a menu bar, a real file system, sixteen fully working apps with their own URUK identity, Spotlight search, a Control Center where every switch does something real, notifications, a PIN lock, full backup/restore, and a browser that loads the real web — and everything you create is still there when you come back.
@@ -7,10 +9,21 @@
 [![Tests](https://img.shields.io/badge/tests-217%2F217-brightgreen?style=flat-square)](#tests)
 [![License](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square)](LICENSE)
 
+[**▶ Open the web edition**](https://uruk-os.vercel.app) · [**⬇ ISO edition 1.0**](https://github.com/dolanexeee/uruk-os/releases/tag/iso-1.0) · [**✔ Feature checklist**](./FEATURES.md)
+
+</div>
+
 - **Live:** https://uruk-os.vercel.app
 - **Version:** 0.7.1 (Phase 5 feature set, refined by real-world testing: friendlier Python stdin in Uruk Code — input() programs get guidance and a per-file remembered stdin box instead of a raw EOFError — plus a full interface polish pass, and a lock-screen fix: locking is now a pure overlay, so window contents and per-app session state — terminal history, unsaved editor buffers, drafts — survive lock/unlock and even a full reload)
 - **Feature checklist:** [FEATURES.md](FEATURES.md) — every feature scored Done / Partial / Missing, nothing claimed without evidence
 - URUK OS is the second application in the **URUK** open-source suite (after [Uruk Cut](https://github.com/dolanexeee/uruk-cut)).
+
+## ⬇ Get URUK OS
+
+| Edition | Get it |
+|---|---|
+| **Web** | **[uruk-os.vercel.app](https://uruk-os.vercel.app)** — nothing to install; your machine lives in your browser, on your device |
+| **ISO 1.0** | **[GitHub release `iso-1.0`](https://github.com/dolanexeee/uruk-os/releases/tag/iso-1.0)** — bootable Debian-based system with the full URUK identity (the ISO is attached as split parts; join instructions are in the release notes) |
 
 ## Clean-room statement
 
